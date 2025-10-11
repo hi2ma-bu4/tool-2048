@@ -8,13 +8,21 @@ let MERGE_LIMIT = 2048;
 
 // メインスレッドからのメッセージを受信
 self.onmessage = function (e) {
-	const { move, board, searchDepth, heuristicWeights, mergeLimit } = e.data;
+	const { algorithm, move, board, searchDepth, heuristicWeights, mergeLimit } = e.data;
 	HEURISTIC_WEIGHTS = heuristicWeights;
 	MERGE_LIMIT = mergeLimit;
 
-	// 計算を開始し、結果をメインスレッドに送信
-	const memo = new Map();
-	const score = expectimax(board, searchDepth - 1, false, memo);
+	let score;
+	if (algorithm === "heuristic") {
+		// 従来のヒューリスティック評価
+		const memo = new Map();
+		score = expectimax(board, searchDepth - 1, false, memo);
+	} else if (algorithm === "mcts") {
+		// モンテカルロ木探索
+		const simulations = searchDepth; // MCTSでは探索深度をシミュレーション回数として扱う
+		score = runMCTS(board, simulations);
+	}
+
 	self.postMessage({ move, score });
 };
 
@@ -110,7 +118,7 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo) {
 		}
 		// 動ける手がない場合 (ゲームオーバー) は、非常に低い評価を返す
 		if (!hasMoved) {
-			return -1e100; // -Infinityの代わりに非常に大きな負の数
+			return -Infinity;
 		}
 		resultScore = maxScore;
 	} else {
@@ -256,4 +264,62 @@ function calculateMonotonicity(currentBoard) {
 function isMaxTileInCorner(currentBoard, maxTile) {
 	const corners = [currentBoard[0][0], currentBoard[0][size - 1], currentBoard[size - 1][0], currentBoard[size - 1][size - 1]];
 	return corners.includes(maxTile);
+}
+
+// =========================================================================
+// モンテカルロ木探索 (MCTS)
+// =========================================================================
+
+function runMCTS(initialBoard, simulations) {
+    let totalScore = 0;
+    for (let i = 0; i < simulations; i++) {
+        totalScore += runRandomPlayout(initialBoard);
+    }
+    return totalScore / simulations;
+}
+
+
+function runRandomPlayout(board) {
+    let currentBoard = board.map(row => [...row]);
+    let totalScore = 0;
+    let isGameOver = false;
+
+    // ゲームが終了するまでランダムに手を選択し続ける
+    // 予期せぬ無限ループを防ぐため、最大2000手までに制限
+    for (let i = 0; i < 2000 && !isGameOver; i++) {
+        const moves = ["up", "down", "left", "right"];
+        const validMoves = [];
+
+        // 有効な手をすべて見つける
+        for (const move of moves) {
+            const simResult = simulateMove(currentBoard, move);
+            if (simResult.moved) {
+                validMoves.push({ move, ...simResult });
+            }
+        }
+
+        if (validMoves.length > 0) {
+            // 有効な手の中からランダムに一つ選ぶ
+            const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+            currentBoard = randomMove.board;
+            totalScore += randomMove.score;
+
+            // 新しいタイルをランダムに追加
+            const emptyCells = getEmptyCells(currentBoard);
+            if (emptyCells.length > 0) {
+                const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                currentBoard[r][c] = Math.random() < 0.9 ? 2 : 4;
+            } else {
+                // 空きマスがなければゲームオーバー
+                isGameOver = true;
+            }
+        } else {
+            // 有効な手がなければゲームオーバー
+            isGameOver = true;
+        }
+    }
+
+    // 最終的な盤面のスコアと、プレイアウト中に得たスコアを合算する
+    // これにより、高いタイルを作るだけでなく、マージによるスコアも評価できる
+    return totalScore + Math.max(...currentBoard.flat());
 }

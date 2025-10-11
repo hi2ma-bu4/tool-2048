@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	const searchDepthInput = document.getElementById("search-depth-input");
 	const realtimeCheckbox = document.getElementById("realtime-checkbox");
 	const autoAddTileCheckbox = document.getElementById("auto-add-tile-checkbox");
+	const aiAlgorithmSelect = document.getElementById("ai-algorithm-select");
 	const mergeLimitInput = document.getElementById("merge-limit-input");
 	const recUp = document.getElementById("rec-up");
 	const recDown = document.getElementById("rec-down");
@@ -132,13 +133,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	// --- 設定のイベントリスナー ---
 
+	function updateSearchDepthInput() {
+		const selectedAlgorithm = aiAlgorithmSelect.value;
+		const label = document.querySelector('label[for="search-depth-input"]');
+		if (selectedAlgorithm === "heuristic") {
+			label.textContent = "探索深度 (AIの賢さ):";
+			searchDepthInput.value = 5;
+			searchDepthInput.max = 10;
+			SEARCH_DEPTH = 5;
+		} else if (selectedAlgorithm === "mcts") {
+			label.textContent = "シミュレーション回数:";
+			searchDepthInput.value = 1000;
+			searchDepthInput.max = 100000;
+			SEARCH_DEPTH = 1000;
+		}
+	}
+
+	aiAlgorithmSelect.addEventListener("change", () => {
+		updateSearchDepthInput();
+		if (isRealtimeCalculation()) runAI();
+	});
+
 	searchDepthInput.addEventListener("change", () => {
-		let depth = parseInt(searchDepthInput.value);
-		if (depth >= 1 && depth <= 10) {
-			SEARCH_DEPTH = depth;
+		let value = parseInt(searchDepthInput.value);
+		const max = parseInt(searchDepthInput.max);
+		const min = parseInt(searchDepthInput.min);
+
+		if (value >= min && value <= max) {
+			SEARCH_DEPTH = value;
 			if (isRealtimeCalculation()) runAI();
 		} else {
-			alert("探索深度は1から10の間で設定してください。");
+			alert(`値は${min}から${max}の間で設定してください。`);
 			searchDepthInput.value = SEARCH_DEPTH;
 		}
 	});
@@ -279,9 +304,10 @@ document.addEventListener("DOMContentLoaded", () => {
 		tasks.forEach((task, index) => {
 			const worker = workers[index % NUM_WORKERS];
 			worker.postMessage({
+				algorithm: aiAlgorithmSelect.value, // ★追加
 				move: task.move,
 				board: task.board,
-				searchDepth: SEARCH_DEPTH,
+				searchDepth: SEARCH_DEPTH, // 探索深度 or MCTSのシミュレーション回数
 				heuristicWeights: HEURISTIC_WEIGHTS,
 				mergeLimit: mergeLimit,
 			});
