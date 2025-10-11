@@ -208,28 +208,48 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	// =========================================================================
-	// AIの中核部分
+	// Web Worker の設定
 	// =========================================================================
+	let aiWorker = null;
+	let isAICalculating = false;
 
-	/**
-	 * AIの実行を開始する関数
-	 */
+	function initializeWorker() {
+		if (window.Worker) {
+			aiWorker = new Worker("ai-worker.js");
+			aiWorker.onmessage = function (e) {
+				const moveScores = e.data;
+				displayRecommendations(moveScores);
+				isAICalculating = false;
+				calculateBtn.disabled = false;
+				if (isAIAutoPlaying) {
+					// 自動プレイ中の場合、次の手を実行
+					handleAutoPlay(moveScores);
+				}
+			};
+		} else {
+			console.error("Web Worker is not supported in your browser.");
+			alert("お使いのブラウザはWeb Workerをサポートしていません。AI機能が利用できません。");
+		}
+	}
+
 	function runAI() {
+		if (isAICalculating) return; // 計算中なら何もしない
+
 		resetRecommendations();
 		aiMessage.textContent = "AIが計算中です...";
 		calculateBtn.disabled = true;
+		isAICalculating = true;
 
-		// UIのフリーズを防ぐため、計算を少し遅延させて実行
-		requestAnimationFrame(() => {
-			const moveScores = findBestMoveScores();
-			displayRecommendations(moveScores);
-			calculateBtn.disabled = false;
+		const mergeLimit = parseInt(mergeLimitInput.value, 10) || Infinity;
+
+		aiWorker.postMessage({
+			board: board,
+			searchDepth: SEARCH_DEPTH,
+			heuristicWeights: HEURISTIC_WEIGHTS,
+			mergeLimit: mergeLimit,
 		});
 	}
 
-	/**
-	 * 計算結果をUIに表示する
-	 */
 	function displayRecommendations(scores) {
 		const recommendationItems = {
 			up: recUp.parentElement,
@@ -280,85 +300,6 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 	}
 
-	/**
-	 * 各手の評価スコアを計算する関数
-	 */
-	function findBestMoveScores() {
-		const memo = new Map(); // メモ化用のキャッシュ
-		const moveScores = { up: -Infinity, down: -Infinity, left: -Infinity, right: -Infinity };
-		const moves = ["up", "down", "left", "right"];
-
-		for (const move of moves) {
-			const simResult = simulateMove(board, move);
-			if (simResult.moved) {
-				moveScores[move] = expectimax(simResult.board, SEARCH_DEPTH, false, memo);
-			}
-		}
-		return moveScores;
-	}
-
-	/**
-	 * Expectimaxアルゴリズムの本体 (再帰関数)
-	 * @param {Array} currentBoard - 評価対象の盤面
-	 * @param {number} depth - 残りの探索の深さ
-	 * @param {boolean} isPlayerTurn - true:プレイヤーの番(Max), false:コンピュータの番(Chance)
-	 * @returns {number} この盤面の評価値
-	 */
-	function expectimax(currentBoard, depth, isPlayerTurn, memo) {
-		const boardKey = currentBoard.toString();
-		if (memo.has(boardKey)) {
-			return memo.get(boardKey);
-		}
-
-		if (depth === 0) {
-			return evaluateBoard(currentBoard); // 深さの限界に達したら盤面を評価
-		}
-
-		let resultScore;
-		if (isPlayerTurn) {
-			// --- プレイヤーのターン (Max Node) ---
-			// 可能な全ての手の中から、最も評価値が高くなるものを選ぶ
-			let maxScore = -Infinity;
-			const moves = ["up", "down", "left", "right"];
-			for (const move of moves) {
-				const simResult = simulateMove(currentBoard, move);
-				if (simResult.moved) {
-					maxScore = Math.max(maxScore, expectimax(simResult.board, depth - 1, false, memo));
-				}
-			}
-			resultScore = maxScore === -Infinity ? 0 : maxScore; // 動けない場合は評価0
-		} else {
-			// --- コンピュータのターン (Chance Node) ---
-			// 全ての空きマスに2か4が出現する場合の「期待値」を計算する
-			const emptyCells = getEmptyCells(currentBoard);
-			if (emptyCells.length === 0) {
-				return 0; // 空きマスがない=ゲームオーバー
-			}
-
-			let totalScore = 0;
-			// 2が90%の確率で出現
-			for (const cell of emptyCells) {
-				const newBoard = currentBoard.map((row) => [...row]);
-				newBoard[cell.r][cell.c] = 2;
-				totalScore += 0.9 * expectimax(newBoard, depth - 1, true, memo);
-			}
-			// 4が10%の確率で出現
-			for (const cell of emptyCells) {
-				const newBoard = currentBoard.map((row) => [...row]);
-				newBoard[cell.r][cell.c] = 4;
-				totalScore += 0.1 * expectimax(newBoard, depth - 1, true, memo);
-			}
-			// 期待値を返す
-			resultScore = totalScore / emptyCells.length;
-		}
-
-		memo.set(boardKey, resultScore);
-		return resultScore;
-	}
-
-	/**
-	 * 盤面の空きマスを取得するヘルパー関数
-	 */
 	function getEmptyCells(currentBoard) {
 		const cells = [];
 		for (let r = 0; r < size; r++) {
@@ -369,112 +310,6 @@ document.addEventListener("DOMContentLoaded", () => {
 			}
 		}
 		return cells;
-	}
-
-	// =========================================================================
-	// AIの「頭脳」となる評価関数 (Heuristics)
-	// =========================================================================
-
-	/**
-	 * 盤面の「良さ」を総合的に評価して数値を返す
-	 * @param {Array} currentBoard - 評価対象の盤面
-	 * @returns {number} 評価スコア
-	 */
-	function evaluateBoard(currentBoard) {
-		const emptyCells = getEmptyCells(currentBoard).length;
-		const maxTileValue = Math.max(...currentBoard.flat());
-
-		const smoothness = calculateSmoothness(currentBoard);
-		const monotonicity = calculateMonotonicity(currentBoard);
-		const maxTileBonus = isMaxTileInCorner(currentBoard, maxTileValue) ? maxTileValue : 0;
-
-		// 各評価値を重み付けして合計する
-		return (
-			smoothness * HEURISTIC_WEIGHTS.smoothness +
-			monotonicity * HEURISTIC_WEIGHTS.monotonicity +
-			Math.log(emptyCells + 1) * HEURISTIC_WEIGHTS.emptyCells + // 0にならないように+1
-			maxTileBonus * HEURISTIC_WEIGHTS.maxTile
-		);
-	}
-
-	/**
-	 * 平滑性 (Smoothness): 隣り合うタイルの値がどれだけ近いかを評価。
-	 * 値が近いほどマージしやすいため高評価 (ペナルティが少ない)。
-	 */
-	function calculateSmoothness(currentBoard) {
-		let smoothness = 0;
-		for (let r = 0; r < size; r++) {
-			for (let c = 0; c < size; c++) {
-				const tileValue = currentBoard[r][c];
-				if (tileValue !== 0) {
-					// 右隣
-					if (c < size - 1 && currentBoard[r][c + 1] !== 0) {
-						smoothness -= Math.abs(Math.log2(tileValue) - Math.log2(currentBoard[r][c + 1]));
-					}
-					// 下隣
-					if (r < size - 1 && currentBoard[r + 1][c] !== 0) {
-						smoothness -= Math.abs(Math.log2(tileValue) - Math.log2(currentBoard[r + 1][c]));
-					}
-				}
-			}
-		}
-		return smoothness;
-	}
-
-	/**
-	 * 単調性 (Monotonicity): タイルが各行・各列で単調に増加または減少しているかを評価。
-	 * 綺麗に並んでいるほど高評価。
-	 */
-	function calculateMonotonicity(currentBoard) {
-		let totals = [0, 0, 0, 0]; // up, down, left, right
-
-		// 左右の単調性
-		for (let r = 0; r < size; r++) {
-			let current = 0;
-			let next = current + 1;
-			while (next < size) {
-				while (next < size && currentBoard[r][next] === 0) next++;
-				if (next >= size) break;
-				const currentValue = Math.log2(currentBoard[r][current]);
-				const nextValue = Math.log2(currentBoard[r][next]);
-				if (currentValue > nextValue) {
-					totals[2] += nextValue - currentValue; // 左方向へのペナルティ
-				} else if (nextValue > currentValue) {
-					totals[3] += currentValue - nextValue; // 右方向へのペナルティ
-				}
-				current = next;
-				next++;
-			}
-		}
-
-		// 上下の単調性
-		for (let c = 0; c < size; c++) {
-			let current = 0;
-			let next = current + 1;
-			while (next < size) {
-				while (next < size && currentBoard[next][c] === 0) next++;
-				if (next >= size) break;
-				const currentValue = Math.log2(currentBoard[current][c]);
-				const nextValue = Math.log2(currentBoard[next][c]);
-				if (currentValue > nextValue) {
-					totals[0] += nextValue - currentValue; // 上方向へのペナルティ
-				} else if (nextValue > currentValue) {
-					totals[1] += currentValue - nextValue; // 下方向へのペナルティ
-				}
-				current = next;
-				next++;
-			}
-		}
-
-		return Math.max(totals[0], totals[1]) + Math.max(totals[2], totals[3]);
-	}
-
-	/**
-	 * 最大値のタイルが四隅にあるかを判定
-	 */
-	function isMaxTileInCorner(currentBoard, maxTile) {
-		const corners = [currentBoard[0][0], currentBoard[0][size - 1], currentBoard[size - 1][0], currentBoard[size - 1][size - 1]];
-		return corners.includes(maxTile);
 	}
 
 	// --- キーボード操作 ---
@@ -585,27 +420,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	function startAIAutoPlay() {
 		const interval = parseInt(aiIntervalInput.value, 10) || 500;
-		let isCalculating = false;
 		autoPlayIntervalId = setInterval(() => {
-			if (isCalculating) {
-				return;
+			if (!isAICalculating) {
+				runAI(); // Workerに計算を依頼
 			}
-
-			isCalculating = true;
-			const moveScores = findBestMoveScores();
-			const validMoves = Object.entries(moveScores).filter(([, score]) => score > -Infinity);
-
-			if (validMoves.length > 0) {
-				const bestMove = validMoves.reduce((a, b) => (a[1] > b[1] ? a : b))[0];
-				moveBoard(bestMove);
-			} else {
-				// ゲームオーバー
-				stopAIAutoPlay();
-				aiMessage.textContent = "ゲームオーバー！AIは停止しました。";
-			}
-
-			isCalculating = false;
 		}, interval);
+	}
+
+	function handleAutoPlay(moveScores) {
+		const validMoves = Object.entries(moveScores).filter(([, score]) => score > -Infinity);
+
+		if (validMoves.length > 0) {
+			const bestMove = validMoves.reduce((a, b) => (a[1] > b[1] ? a : b))[0];
+			moveBoard(bestMove);
+		} else {
+			// ゲームオーバー
+			stopAIAutoPlay();
+			aiMessage.textContent = "ゲームオーバー！AIは停止しました。";
+		}
 	}
 
 	function stopAIAutoPlay() {
@@ -617,4 +449,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	// --- 初期化実行 ---
 	initializeBoard();
+	initializeWorker();
 });
