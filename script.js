@@ -3,9 +3,14 @@ document.addEventListener("DOMContentLoaded", () => {
 	// DOM要素の取得
 	const gridContainer = document.getElementById("grid-container");
 	const scoreDisplay = document.getElementById("score");
-	const bestMoveDisplay = document.getElementById("best-move");
 	const calculateBtn = document.getElementById("calculate-btn");
 	const resetBtn = document.getElementById("reset-btn");
+    const tileValueInput = document.getElementById("tile-value-input");
+    const recUp = document.getElementById("rec-up");
+    const recDown = document.getElementById("rec-down");
+    const recLeft = document.getElementById("rec-left");
+    const recRight = document.getElementById("rec-right");
+    const aiMessage = document.getElementById("ai-message");
 
 	const size = 4;
 	let score = 0;
@@ -32,9 +37,17 @@ document.addEventListener("DOMContentLoaded", () => {
 		board = Array.from({ length: size }, () => Array(size).fill(0));
 		score = 0;
 		updateScore(0);
-		bestMoveDisplay.textContent = "---";
+        resetRecommendations();
 		renderBoard();
 	}
+
+    function resetRecommendations() {
+        recUp.textContent = "-%";
+        recDown.textContent = "-%";
+        recLeft.textContent = "-%";
+        recRight.textContent = "-%";
+        aiMessage.textContent = "";
+    }
 
 	function renderBoard() {
 		gridContainer.innerHTML = "";
@@ -45,7 +58,8 @@ document.addEventListener("DOMContentLoaded", () => {
 				const value = board[r][c];
 				if (value !== 0) {
 					cell.textContent = value;
-					cell.classList.add(`tile-${value > 2048 ? "default" : value}`);
+                    // 2048より大きいタイルも、その値のクラスを直接つける
+					cell.classList.add(`tile-${value}`);
 				}
 				cell.dataset.row = r;
 				cell.dataset.col = c;
@@ -64,10 +78,22 @@ document.addEventListener("DOMContentLoaded", () => {
 		if (cell) {
 			const row = parseInt(cell.dataset.row);
 			const col = parseInt(cell.dataset.col);
-			if (board[row][col] === 0) {
-				board[row][col] = 2;
-				renderBoard();
-			}
+
+            // ユーザーが指定した値を取得
+            let value = parseInt(tileValueInput.value);
+
+            // 値が2のべき乗かチェック (簡易的)
+            if (value > 0 && (value & (value - 1)) === 0) {
+                // セルが空、または同じ値なら上書き/削除
+                if (board[row][col] === value) {
+                    board[row][col] = 0; // 同じ値をクリックしたら削除
+                } else {
+                    board[row][col] = value;
+                }
+			renderBoard();
+            } else {
+                alert("2のべき乗の数値を入力してください (例: 2, 4, 8, 16...)");
+            }
 		}
 	});
 
@@ -131,49 +157,59 @@ document.addEventListener("DOMContentLoaded", () => {
 	 * AIの実行を開始する関数
 	 */
 	function runAI() {
-		bestMoveDisplay.textContent = "計算中...";
-		const moveMap = {
-			up: "上",
-			down: "下",
-			left: "左",
-			right: "右",
-			none: "動かせません",
-		};
+        resetRecommendations();
+		aiMessage.textContent = "AIが計算中です...";
+		calculateBtn.disabled = true;
 
 		// UIのフリーズを防ぐため、計算を少し遅延させて実行
 		setTimeout(() => {
-			const best = findBestMove();
-			bestMoveDisplay.textContent = moveMap[best.move];
-
-			if (best.move === "none") return;
-			const result = simulateMove(board, best.move);
-			board = result.board;
-			updateScore((score += result.score));
-			renderBoard();
+			const moveScores = findBestMoveScores();
+            displayRecommendations(moveScores);
+			calculateBtn.disabled = false;
 		}, 50);
 	}
 
+    /**
+     * 計算結果をUIに表示する
+     */
+    function displayRecommendations(scores) {
+        const totalScore = Object.values(scores).reduce((sum, s) => sum + s, 0);
+        let hasMoves = false;
+
+        if (totalScore > 0) {
+            hasMoves = true;
+            recUp.textContent = `${Math.round(scores.up / totalScore * 100)}%`;
+            recDown.textContent = `${Math.round(scores.down / totalScore * 100)}%`;
+            recLeft.textContent = `${Math.round(scores.left / totalScore * 100)}%`;
+            recRight.textContent = `${Math.round(scores.right / totalScore * 100)}%`;
+            aiMessage.textContent = "計算が完了しました。";
+        } else {
+            recUp.textContent = "0%";
+            recDown.textContent = "0%";
+            recLeft.textContent = "0%";
+            recRight.textContent = "0%";
+            aiMessage.textContent = "動かせる手がありません。";
+        }
+    }
+
+
 	/**
-	 * 最善手を見つけるための起点となる関数
+	 * 各手の評価スコアを計算する関数
 	 */
-	function findBestMove() {
+	function findBestMoveScores() {
 		const memo = new Map(); // メモ化用のキャッシュ
-		let bestScore = -Infinity;
-		let bestMove = "none";
+        const moveScores = { up: 0, down: 0, left: 0, right: 0 };
 		const moves = ["up", "down", "left", "right"];
 
 		for (const move of moves) {
 			const simResult = simulateMove(board, move);
 			if (simResult.moved) {
-				// その動きが可能なら、Expectimax探索を開始する
-				const score = expectimax(simResult.board, SEARCH_DEPTH, false, memo); // 次はコンピュータの番
-				if (score > bestScore) {
-					bestScore = score;
-					bestMove = move;
-				}
+				const score = expectimax(simResult.board, SEARCH_DEPTH, false, memo);
+                // スコアはマイナスの場合もあるので、0以上にする
+				moveScores[move] = Math.max(0, score);
 			}
 		}
-		return { move: bestMove, score: bestScore };
+		return moveScores;
 	}
 
 	/**
