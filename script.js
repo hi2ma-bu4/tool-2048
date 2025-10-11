@@ -136,7 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	function updateSearchDepthInput() {
 		const selectedAlgorithm = aiAlgorithmSelect.value;
 		const label = document.querySelector('label[for="search-depth-input"]');
-		if (selectedAlgorithm === "heuristic" || selectedAlgorithm === "pattern") {
+		if (selectedAlgorithm === "heuristic" || selectedAlgorithm === "pattern" || selectedAlgorithm === "snake") {
 			label.textContent = "探索深度 (AIの賢さ):";
 			searchDepthInput.value = 5;
 			searchDepthInput.max = 10;
@@ -382,6 +382,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	// --- キーボード操作 ---
 	document.addEventListener("keydown", (event) => {
+		// input要素にフォーカスがある場合は操作を無視する
+		if (event.target.tagName.toLowerCase() === "input") {
+			return;
+		}
+
 		let direction = null;
 		switch (event.key) {
 			case "ArrowUp":
