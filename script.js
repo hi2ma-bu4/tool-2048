@@ -184,7 +184,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	// --- ゲームのコアロジック ---
 
 	function operateRow(row) {
-		const originalRowStr = row.join(",");
 		let newRow = row.filter((val) => val);
 		let newScore = 0;
 		const mergeLimit = parseInt(mergeLimitInput.value, 10) || Infinity;
@@ -200,8 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
 			newRow.push(0);
 		}
 
-		const changed = originalRowStr !== newRow.join(",");
-		return { newRow, score: newScore, changed: changed };
+		return { newRow, score: newScore };
 	}
 
 	function transpose(matrix) {
@@ -494,7 +492,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	function startAIAutoPlay() {
-		const interval = parseInt(aiIntervalInput.value, 10) || 500;
+		const interval = parseInt(aiIntervalInput.value, 10) || 1;
 		autoPlayIntervalId = setInterval(() => {
 			if (!isAICalculating) {
 				runAI(); // Workerに計算を依頼

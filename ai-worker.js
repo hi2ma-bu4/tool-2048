@@ -29,10 +29,8 @@ self.onmessage = function (e) {
 // --- ゲームロジックのコア部分 (Worker内で完結させるため) ---
 
 function operateRow(row) {
-	const originalRowStr = row.join(",");
 	let newRow = row.filter((val) => val);
 	let newScore = 0;
-	let changed = false;
 
 	for (let i = 0; i < newRow.length - 1; i++) {
 		if (newRow[i] === newRow[i + 1] && newRow[i] < MERGE_LIMIT) {
@@ -45,11 +43,7 @@ function operateRow(row) {
 		newRow.push(0);
 	}
 
-	if (originalRowStr !== newRow.join(",")) {
-		changed = true;
-	}
-
-	return { newRow, score: newScore, changed };
+	return { newRow, score: newScore };
 }
 
 function transpose(matrix) {
@@ -92,6 +86,10 @@ function simulateMove(currentBoard, direction) {
 
 /**
  * Expectimaxアルゴリズムの本体 (再帰関数)
+ * @param {Array} currentBoard - 評価対象の盤面
+ * @param {number} depth - 残りの探索の深さ
+ * @param {boolean} isPlayerTurn - true:プレイヤーの番(Max), false:コンピュータの番(Chance)
+ * @returns {number} この盤面の評価値
  */
 function expectimax(currentBoard, depth, isPlayerTurn, memo) {
 	const boardKey = currentBoard.toString();
@@ -108,19 +106,13 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo) {
 		// プレイヤーのターン: 最善の手を見つける (Max)
 		let maxScore = -Infinity;
 		const moves = ["up", "down", "left", "right"];
-		let hasMoved = false;
 		for (const move of moves) {
 			const simResult = simulateMove(currentBoard, move);
 			if (simResult.moved) {
-				hasMoved = true;
 				maxScore = Math.max(maxScore, expectimax(simResult.board, depth - 1, false, memo));
 			}
 		}
-		// 動ける手がない場合 (ゲームオーバー) は、非常に低い評価を返す
-		if (!hasMoved) {
-			return -Infinity;
-		}
-		resultScore = maxScore;
+		resultScore = maxScore === -Infinity ? 0 : maxScore;
 	} else {
 		// コンピュータのターン: 全ての可能性の平均を計算 (Expectation)
 		const emptyCells = getEmptyCells(currentBoard);
@@ -135,10 +127,12 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo) {
 
 		let totalScore = 0;
 		for (const cell of emptyCells) {
+			// 2が90%の確率で出現
 			const newBoard2 = currentBoard.map((row) => [...row]);
 			newBoard2[cell.r][cell.c] = 2;
 			totalScore += 0.9 * expectimax(newBoard2, depth - 1, true, memo);
 
+			// 4が10%の確率で出現
 			const newBoard4 = currentBoard.map((row) => [...row]);
 			newBoard4[cell.r][cell.c] = 4;
 			totalScore += 0.1 * expectimax(newBoard4, depth - 1, true, memo);
@@ -165,10 +159,25 @@ function getEmptyCells(currentBoard) {
 	return cells;
 }
 
+// Math.log2の計算結果をキャッシュ
+const log2Cache = {};
+function getLog2(val) {
+	if (val === 0) return 0; // 0の場合は0を返す
+	if (!log2Cache[val]) {
+		log2Cache[val] = Math.log2(val);
+	}
+	return log2Cache[val];
+}
+
 // =========================================================================
 // AIの「頭脳」となる評価関数 (Heuristics)
 // =========================================================================
 
+/**
+ * 盤面の「良さ」を総合的に評価して数値を返す
+ * @param {Array} currentBoard - 評価対象の盤面
+ * @returns {number} 評価スコア
+ */
 function evaluateBoard(currentBoard) {
 	const emptyCells = getEmptyCells(currentBoard).length;
 	const maxTileValue = Math.max(...currentBoard.flat());
@@ -180,17 +189,24 @@ function evaluateBoard(currentBoard) {
 	return smoothness * HEURISTIC_WEIGHTS.smoothness + monotonicity * HEURISTIC_WEIGHTS.monotonicity + Math.log(emptyCells + 1) * HEURISTIC_WEIGHTS.emptyCells + maxTileBonus * HEURISTIC_WEIGHTS.maxTile;
 }
 
+/**
+ * 平滑性 (Smoothness): 隣り合うタイルの値がどれだけ近いかを評価。
+ * 値が近いほどマージしやすいため高評価 (ペナルティが少ない)。
+ */
 function calculateSmoothness(currentBoard) {
 	let smoothness = 0;
 	for (let r = 0; r < size; r++) {
+		const currentRow = currentBoard[r];
 		for (let c = 0; c < size; c++) {
-			const tileValue = currentBoard[r][c];
+			const tileValue = currentRow[c];
 			if (tileValue !== 0) {
+				// 右隣
 				if (c < size - 1 && currentBoard[r][c + 1] !== 0) {
-					smoothness -= Math.abs(Math.log2(tileValue) - Math.log2(currentBoard[r][c + 1]));
+					smoothness -= Math.abs(getLog2(tileValue) - getLog2(currentRow[c + 1]));
 				}
+				// 下隣
 				if (r < size - 1 && currentBoard[r + 1][c] !== 0) {
-					smoothness -= Math.abs(Math.log2(tileValue) - Math.log2(currentBoard[r + 1][c]));
+					smoothness -= Math.abs(getLog2(tileValue) - getLog2(currentBoard[r + 1][c]));
 				}
 			}
 		}
@@ -198,34 +214,29 @@ function calculateSmoothness(currentBoard) {
 	return smoothness;
 }
 
-// Math.log2の計算結果をキャッシュ
-const log2Cache = {};
-function getLog2(val) {
-	if (val === 0) return 0; // 0の場合は0を返す
-	if (!log2Cache[val]) {
-		log2Cache[val] = Math.log2(val);
-	}
-	return log2Cache[val];
-}
-
+/**
+ * 単調性 (Monotonicity): タイルが各行・各列で単調に増加または減少しているかを評価。
+ * 綺麗に並んでいるほど高評価。
+ */
 function calculateMonotonicity(currentBoard) {
 	let totals = [0, 0, 0, 0]; // up, down, left, right
 
 	// 左右の単調性
 	for (let r = 0; r < size; r++) {
 		let currentIdx = 0;
+		const currentRow = currentBoard[r];
 		while (currentIdx < size - 1) {
 			// 現在地から最初の非ゼロタイルを探す
-			while (currentIdx < size - 1 && currentBoard[r][currentIdx] === 0) currentIdx++;
+			while (currentIdx < size - 1 && currentRow[currentIdx] === 0) currentIdx++;
 
 			let nextIdx = currentIdx + 1;
 			// 次の非ゼロタイルを探す
-			while (nextIdx < size && currentBoard[r][nextIdx] === 0) nextIdx++;
+			while (nextIdx < size && currentRow[nextIdx] === 0) nextIdx++;
 
 			if (nextIdx >= size) break;
 
-			const currentValue = getLog2(currentBoard[r][currentIdx]);
-			const nextValue = getLog2(currentBoard[r][nextIdx]);
+			const currentValue = getLog2(currentRow[currentIdx]);
+			const nextValue = getLog2(currentRow[nextIdx]);
 
 			if (currentValue > nextValue) {
 				totals[2] += nextValue - currentValue; // 左方向へのペナルティ
@@ -274,7 +285,7 @@ function isMaxTileInCorner(currentBoard, maxTile) {
 // 深いランダムプレイアウトの代わりに、限定的なプレイアウトとヒューリスティック評価を組み合わせる
 // =========================================================================
 
-const PLAYOUT_DEPTH = 15; // ランダムプレイアウトを行う手数
+const PLAYOUT_DEPTH = 5; // ランダムプレイアウトを行う手数
 
 function runMCTS(initialBoard, simulations) {
 	let totalScore = 0;
@@ -292,8 +303,8 @@ function runRandomPlayout(board) {
 	let isGameOver = false;
 
 	// 固定された手数 (PLAYOUT_DEPTH) だけ、ランダムにゲームを進める
+	const moves = ["up", "down", "left", "right"];
 	for (let i = 0; i < PLAYOUT_DEPTH && !isGameOver; i++) {
-		const moves = ["up", "down", "left", "right"];
 		const validMoves = [];
 
 		// 有効な手をすべて見つける
