@@ -1,3 +1,10 @@
+:root {
+	--tile-size-3: 45px;
+	--tile-size-4: 40px;
+	--tile-size-5: 30px;
+	--tile-size-default: 20px;
+}
+
 body {
 	background-color: #faf8ef;
 	color: #776e65;
@@ -106,6 +113,7 @@ button:hover {
 	align-items: center;
 	background-color: rgba(238, 228, 218, .35);
 	border-radius: 3px;
+	color: #776e65;
 	cursor: pointer;
 	display: flex;
 	font-size: 45px;
@@ -120,12 +128,10 @@ button:hover {
 /* タイルの色設定 */
 .tile-2 {
 	background-color: #eee4da;
-	color: #776e65;
 }
 
 .tile-4 {
 	background-color: #ede0c8;
-	color: #776e65;
 }
 
 .tile-8 {
@@ -149,59 +155,69 @@ button:hover {
 }
 
 .tile-128 {
-	background-color: #edcf72;
+	background: linear-gradient(135deg, #ff9a9e, #fecfef);
 	color: #f9f6f2;
 }
 
 .tile-256 {
-	background-color: #edcc61;
+	background: linear-gradient(135deg, #ff758c, #ff7eb3);
 	color: #f9f6f2;
 }
 
 .tile-512 {
-	background-color: #edc850;
+	background: linear-gradient(135deg, #ff9a44, #fc6076);
 	color: #f9f6f2;
 }
 
 .tile-1024 {
-	background-color: #edc53f;
+	background: linear-gradient(135deg, #43e97b, #38f9d7);
 	color: #f9f6f2;
+	font-size: var(--tile-size-4);
 }
 
 .tile-2048 {
-	background-color: #edc22e;
+	background: linear-gradient(135deg, #4776e6, #8e54e9);
 	color: #f9f6f2;
+	font-size: var(--tile-size-4);
 }
 
 .tile-4096 {
-	background-color: #3c3a32;
+	background: linear-gradient(135deg, #f7971e, #ffd200);
 	color: #f9f6f2;
+	font-size: var(--tile-size-4);
 }
 
 .tile-8192 {
-	background-color: #3c3a32;
+	background: linear-gradient(135deg, #00c6ff, #0072ff);
 	color: #f9f6f2;
-	font-size: 35px;
+	font-size: var(--tile-size-4);
 }
 
 .tile-16384 {
-	background-color: #ff0000;
-
-/* 目立つように赤 */
+	background: linear-gradient(135deg, #f83600, #f9d423);
 	color: #f9f6f2;
-	font-size: 30px;
+	font-size: var(--tile-size-5);
 }
 
 .tile-32768 {
-	background-color: #ff0000;
+	background: linear-gradient(135deg, #fc5c7d, #6a82fb);
 	color: #f9f6f2;
-	font-size: 30px;
+	font-size: var(--tile-size-5);
 }
 
 .tile-65536 {
-	background-color: #ff0000;
+	background: linear-gradient(135deg, #ff9a9e, #fcd77f, #42e695, #38f9d7);
 	color: #f9f6f2;
-	font-size: 30px;
+	font-size: var(--tile-size-5);
+	text-shadow: #555 1px 1px 3px;
+}
+
+.tile-default {
+	background: linear-gradient(135deg, #ff9a9e, #fcd77f, #fbc2eb, #a1c4fd);
+	color: #f9f6f2;
+	font-size: var(--tile-size-default);
+	text-shadow: #555 1px 1px 3px;
+	word-break: break-all;
 }
 
 .instructions {
@@ -211,8 +227,6 @@ button:hover {
 	margin-right: auto;
 	margin-top: 30px;
 	max-width: 800px;
-
-/* 少し幅を広げる */
 	padding: 20px;
 	text-align: left;
 }
@@ -238,12 +252,12 @@ button:hover {
 
 /* Recommendation Highlighting */
 .highlight-best {
-    background-color: #ffd700 !important; /* Gold */
-    font-weight: bold;
-    border-radius: 5px;
+	background-color: #ffd700 !important;
+	border-radius: 5px;
+	font-weight: bold;
 }
 
 .highlight-worst {
-    background-color: #ffb6c1 !important; /* LightPink */
-    border-radius: 5px;
+	background-color: #ffb6c1 !important;
+	border-radius: 5px;
 }

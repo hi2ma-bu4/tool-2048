@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	// AIの設定
 	// =========================================================================
 	// AIが何手先まで読み込むか。数値を大きくすると賢くなるが計算時間が長くなる。
-	let SEARCH_DEPTH = 3; // デフォルト値
+	let SEARCH_DEPTH = 5; // デフォルト値
 
 	// 評価関数で使う各要素の「重み」。これらのバランスでAIの戦略が変わる。
 	const HEURISTIC_WEIGHTS = {
@@ -58,8 +58,12 @@ document.addEventListener("DOMContentLoaded", () => {
 				const value = board[r][c];
 				if (value !== 0) {
 					cell.textContent = value;
-					// 2048より大きいタイルも、その値のクラスを直接つける
-					cell.classList.add(`tile-${value}`);
+					// 65536からのタイルはデフォルト色を使用
+					if (value > 65536) {
+						cell.classList.add("tile-default");
+					} else {
+						cell.classList.add(`tile-${value}`);
+					}
 				}
 				cell.dataset.row = r;
 				cell.dataset.col = c;
@@ -111,7 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		isLongPress = false; // フラグをリセット
 	});
 
-    // マウスがグリッド外に出た場合もタイマーをクリア
+	// マウスがグリッド外に出た場合もタイマーをクリア
 	gridContainer.addEventListener("mouseleave", () => {
 		clearTimeout(pressTimer);
 		isLongPress = false;
@@ -145,7 +149,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	function isRealtimeCalculation() {
 		return realtimeCheckbox.checked;
 	}
-
 
 	// --- ゲームのコアロジック ---
 
@@ -227,10 +230,9 @@ document.addEventListener("DOMContentLoaded", () => {
 			right: recRight.parentElement,
 		};
 		// remove existing highlights
-		Object.values(recommendationItems).forEach(item => {
+		Object.values(recommendationItems).forEach((item) => {
 			item.classList.remove("highlight-best", "highlight-worst");
 		});
-
 
 		const totalScore = Object.values(scores).reduce((sum, s) => sum + s, 0);
 
@@ -247,15 +249,15 @@ document.addEventListener("DOMContentLoaded", () => {
 			recLeft.textContent = `${percentages.left}%`;
 			recRight.textContent = `${percentages.right}%`;
 
-			const validMoves = Object.keys(scores).filter(move => scores[move] > 0);
+			const validMoves = Object.keys(scores).filter((move) => scores[move] > 0);
 
-			if(validMoves.length > 0) {
-				const bestMove = validMoves.reduce((a, b) => percentages[a] > percentages[b] ? a : b);
+			if (validMoves.length > 0) {
+				const bestMove = validMoves.reduce((a, b) => (percentages[a] > percentages[b] ? a : b));
 				recommendationItems[bestMove].classList.add("highlight-best");
 
 				if (validMoves.length > 1) {
-					const worstMove = validMoves.reduce((a, b) => percentages[a] < percentages[b] ? a : b);
-					if(bestMove !== worstMove) {
+					const worstMove = validMoves.reduce((a, b) => (percentages[a] < percentages[b] ? a : b));
+					if (bestMove !== worstMove) {
 						recommendationItems[worstMove].classList.add("highlight-worst");
 					}
 				}
@@ -515,12 +517,10 @@ document.addEventListener("DOMContentLoaded", () => {
 	function addRandomTile() {
 		const emptyCells = getEmptyCells(board);
 		if (emptyCells.length > 0) {
-			const { r, c } =
-				emptyCells[Math.floor(Math.random() * emptyCells.length)];
+			const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
 			board[r][c] = Math.random() < 0.9 ? 2 : 4;
 		}
 	}
-
 
 	// --- スワイプ操作 ---
 	let touchStartX = 0;
@@ -528,10 +528,14 @@ document.addEventListener("DOMContentLoaded", () => {
 	let touchEndX = 0;
 	let touchEndY = 0;
 
-	gridContainer.addEventListener("touchstart", (event) => {
-		touchStartX = event.changedTouches[0].screenX;
-		touchStartY = event.changedTouches[0].screenY;
-	}, { passive: true });
+	gridContainer.addEventListener(
+		"touchstart",
+		(event) => {
+			touchStartX = event.changedTouches[0].screenX;
+			touchStartY = event.changedTouches[0].screenY;
+		},
+		{ passive: true }
+	);
 
 	gridContainer.addEventListener("touchend", (event) => {
 		touchEndX = event.changedTouches[0].screenX;
@@ -544,11 +548,13 @@ document.addEventListener("DOMContentLoaded", () => {
 		const diffY = touchEndY - touchStartY;
 		const threshold = 50; // 50px以上のスワイプを検知
 
-		if (Math.abs(diffX) > Math.abs(diffY)) { // 横方向のスワイプ
+		if (Math.abs(diffX) > Math.abs(diffY)) {
+			// 横方向のスワイプ
 			if (Math.abs(diffX) > threshold) {
 				moveBoard(diffX > 0 ? "right" : "left");
 			}
-		} else { // 縦方向のスワイyプ
+		} else {
+			// 縦方向のスワイyプ
 			if (Math.abs(diffY) > threshold) {
 				moveBoard(diffY > 0 ? "down" : "up");
 			}
