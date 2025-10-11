@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048 最善手計算ツール</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1>2048 最善手計算ツール</h1>
+    <div class="header">
+        <div class="score-container">
+            スコア: <span id="score">0</span>
+        </div>
+        <button id="calculate-btn">最善手を計算</button>
+        <button id="reset-btn">リセット</button>
+    </div>
+
+    <div class="result-container">
+        AIが計算した最善手: <span id="best-move">---</span>
+    </div>
+
+    <div class="game-container">
+        <div class="grid-container" id="grid-container">
+            </div>
+    </div>
+
+    <div class="instructions">
+        <h2>使い方</h2>
+        <p>1. ボード上の好きなセルをクリックして「2」を配置します。</p>
+        <p>2. 初期盤面や、ゲーム中に追加されるタイルを再現してください。</p>
+        <p>3. 「最善手を計算」ボタンを押すと、次に動かすべき方向が表示されます。</p>
+        <p>※ このAIは1手先を読んで、最もスコアが高くなる方向を選びます。</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
