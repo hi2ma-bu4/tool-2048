@@ -17,21 +17,44 @@
         <button id="reset-btn">リセット</button>
     </div>
 
-    <div class="result-container">
-        AIが計算した最善手: <span id="best-move">---</span>
-    </div>
+    <div class="main-content">
+        <div class="game-container">
+            <div class="grid-container" id="grid-container">
+            </div>
+        </div>
 
-    <div class="game-container">
-        <div class="grid-container" id="grid-container">
+        <div class="ai-recommendation">
+            <h2>AIの推奨手</h2>
+            <div class="recommendation-item">
+                <span>上 (Up)</span>
+                <span id="rec-up">-%</span>
+            </div>
+            <div class="recommendation-item">
+                <span>下 (Down)</span>
+                <span id="rec-down">-%</span>
+            </div>
+            <div class="recommendation-item">
+                <span>左 (Left)</span>
+                <span id="rec-left">-%</span>
+            </div>
+            <div class="recommendation-item">
+                <span>右 (Right)</span>
+                <span id="rec-right">-%</span>
+            </div>
+             <p id="ai-message" class="ai-message-text"></p>
         </div>
     </div>
 
+
     <div class="instructions">
         <h2>使い方</h2>
-        <p>1. ボード上の好きなセルをクリックして「2」を配置します。</p>
-        <p>2. 初期盤面や、ゲーム中に追加されるタイルを再現してください。</p>
-        <p>3. 「最善手を計算」ボタンを押すと、次に動かすべき方向が表示されます。</p>
-        <p>※ このAIは1手先を読んで、最もスコアが高くなる方向を選びます。</p>
+        <div class="tile-input-container">
+            <label for="tile-value-input">配置するタイルの値:</label>
+            <input type="number" id="tile-value-input" value="2" min="2">
+        </div>
+        <p>1. 上のボックスに配置したいタイルの数値を入力します。(2のべき乗: 2, 4, 8...)</p>
+        <p>2. ボード上の好きなセルをクリックしてタイルを配置します。</p>
+        <p>3. 「最善手を計算」ボタンを押すと、右側に各方向への推奨度がパーセントで表示されます。</p>
     </div>
 
     <script src="script.js"></script>

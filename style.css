@@ -40,21 +40,54 @@ button:hover {
 	background-color: #9f8b77;
 }
 
-.result-container {
-	background-color: #bbada0;
-	border-radius: 5px;
-	color: white;
-	display: inline-block;
-	font-size: 20px;
-	font-weight: bold;
-	margin-bottom: 20px;
-	padding: 10px;
+.main-content {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 30px;
+    margin-bottom: 20px;
 }
 
 .game-container {
 	align-items: center;
 	display: flex;
 	justify-content: center;
+}
+
+.ai-recommendation {
+    background-color: #bbada0;
+    padding: 15px;
+    border-radius: 6px;
+    color: #f9f6f2;
+    width: 250px;
+}
+
+.ai-recommendation h2 {
+    margin-top: 0;
+    text-align: center;
+    border-bottom: 2px solid #eee4da;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.recommendation-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+    margin-bottom: 10px;
+    padding: 5px;
+    border-radius: 3px;
+}
+.recommendation-item span:last-child {
+    font-weight: bold;
+}
+
+.ai-message-text {
+    margin-top: 15px;
+    text-align: center;
+    font-weight: bold;
+    color: #f67c5f;
+    font-size: 18px;
 }
 
 .grid-container {
@@ -139,10 +172,33 @@ button:hover {
 	color: #f9f6f2;
 }
 
-.tile-default {
-	background-color: #3c3a32;
-	color: #f9f6f2;
+.tile-4096 {
+    background-color: #3c3a32;
+    color: #f9f6f2;
 }
+
+.tile-8192 {
+    background-color: #3c3a32;
+    color: #f9f6f2;
+    font-size: 35px;
+}
+
+.tile-16384 {
+    background-color: #ff0000; /* 目立つように赤 */
+    color: #f9f6f2;
+    font-size: 30px;
+}
+.tile-32768 {
+    background-color: #ff0000;
+    color: #f9f6f2;
+    font-size: 30px;
+}
+.tile-65536 {
+    background-color: #ff0000;
+    color: #f9f6f2;
+    font-size: 30px;
+}
+
 
 .instructions {
 	background-color: #eee4da;
@@ -150,7 +206,26 @@ button:hover {
 	margin-left: auto;
 	margin-right: auto;
 	margin-top: 30px;
-	max-width: 500px;
-	padding: 15px;
+	max-width: 800px; /* 少し幅を広げる */
+	padding: 20px;
 	text-align: left;
+}
+
+.tile-input-container {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tile-input-container label {
+    font-weight: bold;
+}
+
+.tile-input-container input {
+    width: 100px;
+    padding: 5px;
+    border: 1px solid #bbada0;
+    border-radius: 3px;
+    font-size: 16px;
 }
