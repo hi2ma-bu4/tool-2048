@@ -235,3 +235,15 @@ button:hover {
 	padding: 5px;
 	width: 100px;
 }
+
+/* Recommendation Highlighting */
+.highlight-best {
+    background-color: #ffd700 !important; /* Gold */
+    font-weight: bold;
+    border-radius: 5px;
+}
+
+.highlight-worst {
+    background-color: #ffb6c1 !important; /* LightPink */
+    border-radius: 5px;
+}
