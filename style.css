@@ -41,11 +41,11 @@ button:hover {
 }
 
 .main-content {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 30px;
-    margin-bottom: 20px;
+	align-items: flex-start;
+	display: flex;
+	gap: 30px;
+	justify-content: center;
+	margin-bottom: 20px;
 }
 
 .game-container {
@@ -55,39 +55,40 @@ button:hover {
 }
 
 .ai-recommendation {
-    background-color: #bbada0;
-    padding: 15px;
-    border-radius: 6px;
-    color: #f9f6f2;
-    width: 250px;
+	background-color: #bbada0;
+	border-radius: 6px;
+	color: #f9f6f2;
+	padding: 15px;
+	width: 250px;
 }
 
 .ai-recommendation h2 {
-    margin-top: 0;
-    text-align: center;
-    border-bottom: 2px solid #eee4da;
-    padding-bottom: 10px;
-    margin-bottom: 15px;
+	border-bottom: 2px solid #eee4da;
+	margin-bottom: 15px;
+	margin-top: 0;
+	padding-bottom: 10px;
+	text-align: center;
 }
 
 .recommendation-item {
-    display: flex;
-    justify-content: space-between;
-    font-size: 20px;
-    margin-bottom: 10px;
-    padding: 5px;
-    border-radius: 3px;
+	border-radius: 3px;
+	display: flex;
+	font-size: 20px;
+	justify-content: space-between;
+	margin-bottom: 10px;
+	padding: 5px;
 }
+
 .recommendation-item span:last-child {
-    font-weight: bold;
+	font-weight: bold;
 }
 
 .ai-message-text {
-    margin-top: 15px;
-    text-align: center;
-    font-weight: bold;
-    color: #f67c5f;
-    font-size: 18px;
+	color: #f67c5f;
+	font-size: 18px;
+	font-weight: bold;
+	margin-top: 15px;
+	text-align: center;
 }
 
 .grid-container {
@@ -173,32 +174,35 @@ button:hover {
 }
 
 .tile-4096 {
-    background-color: #3c3a32;
-    color: #f9f6f2;
+	background-color: #3c3a32;
+	color: #f9f6f2;
 }
 
 .tile-8192 {
-    background-color: #3c3a32;
-    color: #f9f6f2;
-    font-size: 35px;
+	background-color: #3c3a32;
+	color: #f9f6f2;
+	font-size: 35px;
 }
 
 .tile-16384 {
-    background-color: #ff0000; /* 目立つように赤 */
-    color: #f9f6f2;
-    font-size: 30px;
-}
-.tile-32768 {
-    background-color: #ff0000;
-    color: #f9f6f2;
-    font-size: 30px;
-}
-.tile-65536 {
-    background-color: #ff0000;
-    color: #f9f6f2;
-    font-size: 30px;
+	background-color: #ff0000;
+
+/* 目立つように赤 */
+	color: #f9f6f2;
+	font-size: 30px;
 }
 
+.tile-32768 {
+	background-color: #ff0000;
+	color: #f9f6f2;
+	font-size: 30px;
+}
+
+.tile-65536 {
+	background-color: #ff0000;
+	color: #f9f6f2;
+	font-size: 30px;
+}
 
 .instructions {
 	background-color: #eee4da;
@@ -206,26 +210,28 @@ button:hover {
 	margin-left: auto;
 	margin-right: auto;
 	margin-top: 30px;
-	max-width: 800px; /* 少し幅を広げる */
+	max-width: 800px;
+
+/* 少し幅を広げる */
 	padding: 20px;
 	text-align: left;
 }
 
 .tile-input-container {
-    margin-bottom: 15px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+	align-items: center;
+	display: flex;
+	gap: 10px;
+	margin-bottom: 15px;
 }
 
 .tile-input-container label {
-    font-weight: bold;
+	font-weight: bold;
 }
 
 .tile-input-container input {
-    width: 100px;
-    padding: 5px;
-    border: 1px solid #bbada0;
-    border-radius: 3px;
-    font-size: 16px;
+	border: 1px solid #bbada0;
+	border-radius: 3px;
+	font-size: 16px;
+	padding: 5px;
+	width: 100px;
 }
