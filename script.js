@@ -185,7 +185,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		let moveScore = 0;
 		let boardChanged = false;
 
-		const originalBoardStr = JSON.stringify(tempBoard);
+		const originalBoardStr = tempBoard.toString(); // より高速な比較方法
 
 		if (direction === "up" || direction === "down") tempBoard = transpose(tempBoard);
 
@@ -208,24 +208,30 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	// =========================================================================
-	// Web Worker の設定
+	// Web Worker の設定 (マルチワーカー対応)
 	// =========================================================================
-	let aiWorker = null;
+	const NUM_WORKERS = 4; // ワーカーの数
+	let workers = [];
 	let isAICalculating = false;
+	let moveScores = {};
+	let completedWorkers = 0;
 
-	function initializeWorker() {
+	function initializeWorkers() {
 		if (window.Worker) {
-			aiWorker = new Worker("ai-worker.js");
-			aiWorker.onmessage = function (e) {
-				const moveScores = e.data;
-				displayRecommendations(moveScores);
-				isAICalculating = false;
-				calculateBtn.disabled = false;
-				if (isAIAutoPlaying) {
-					// 自動プレイ中の場合、次の手を実行
-					handleAutoPlay(moveScores);
-				}
-			};
+			for (let i = 0; i < NUM_WORKERS; i++) {
+				const worker = new Worker("ai-worker.js");
+				worker.onmessage = function (e) {
+					const { move, score } = e.data;
+					moveScores[move] = score;
+					completedWorkers++;
+
+					// すべてのワーカーから結果が返ってきたら処理を完了
+					if (completedWorkers === Object.keys(moveScores).length) {
+						finishAICalculation();
+					}
+				};
+				workers.push(worker);
+			}
 		} else {
 			console.error("Web Worker is not supported in your browser.");
 			alert("お使いのブラウザはWeb Workerをサポートしていません。AI機能が利用できません。");
@@ -233,7 +239,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	function runAI() {
-		if (isAICalculating) return; // 計算中なら何もしない
+		if (isAICalculating) return;
 
 		resetRecommendations();
 		aiMessage.textContent = "AIが計算中です...";
@@ -241,13 +247,48 @@ document.addEventListener("DOMContentLoaded", () => {
 		isAICalculating = true;
 
 		const mergeLimit = parseInt(mergeLimitInput.value, 10) || Infinity;
+		const moves = ["up", "down", "left", "right"];
+		const tasks = [];
 
-		aiWorker.postMessage({
-			board: board,
-			searchDepth: SEARCH_DEPTH,
-			heuristicWeights: HEURISTIC_WEIGHTS,
-			mergeLimit: mergeLimit,
+		// 各方向への移動をシミュレートし、有効な手のみをタスクとして追加
+		for (const move of moves) {
+			const simResult = simulateMove(board, move);
+			if (simResult.moved) {
+				tasks.push({ move: move, board: simResult.board });
+			} else {
+				moveScores[move] = -Infinity; // 動けない手
+			}
+		}
+
+		// 有効な手がない場合
+		if (tasks.length === 0) {
+			finishAICalculation();
+			return;
+		}
+
+		completedWorkers = 0;
+		// タスクをワーカーに分散
+		tasks.forEach((task, index) => {
+			const worker = workers[index % NUM_WORKERS];
+			worker.postMessage({
+				move: task.move,
+				board: task.board,
+				searchDepth: SEARCH_DEPTH,
+				heuristicWeights: HEURISTIC_WEIGHTS,
+				mergeLimit: mergeLimit,
+			});
 		});
+	}
+
+	function finishAICalculation() {
+		displayRecommendations(moveScores);
+		isAICalculating = false;
+		calculateBtn.disabled = false;
+		if (isAIAutoPlaying) {
+			handleAutoPlay(moveScores);
+		}
+		// 次の計算のためにリセット
+		moveScores = {};
 	}
 
 	function displayRecommendations(scores) {
@@ -449,5 +490,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	// --- 初期化実行 ---
 	initializeBoard();
-	initializeWorker();
+	initializeWorkers();
 });
