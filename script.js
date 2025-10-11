@@ -136,16 +136,11 @@ document.addEventListener("DOMContentLoaded", () => {
 	function updateSearchDepthInput() {
 		const selectedAlgorithm = aiAlgorithmSelect.value;
 		const label = document.querySelector('label[for="search-depth-input"]');
-		if (selectedAlgorithm === "heuristic") {
+		if (selectedAlgorithm === "heuristic" || selectedAlgorithm === "pattern") {
 			label.textContent = "探索深度 (AIの賢さ):";
 			searchDepthInput.value = 5;
 			searchDepthInput.max = 10;
 			SEARCH_DEPTH = 5;
-		} else if (selectedAlgorithm === "mcts") {
-			label.textContent = "シミュレーション回数:";
-			searchDepthInput.value = 1000;
-			searchDepthInput.max = 100000;
-			SEARCH_DEPTH = 1000;
 		}
 	}
 

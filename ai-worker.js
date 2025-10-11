@@ -13,15 +13,14 @@ self.onmessage = function (e) {
 	MERGE_LIMIT = mergeLimit;
 
 	let score;
+	const memo = new Map();
 	if (algorithm === "heuristic") {
 		// 従来のヒューリスティック評価
-		const memo = new Map();
-		score = expectimax(board, searchDepth - 1, false, memo);
-	} else if (algorithm === "mcts") {
-		// モンテカルロ木探索
-		const simulations = searchDepth; // MCTSでは探索深度をシミュレーション回数として扱う
-		score = runMCTS(board, simulations);
-	}
+		score = expectimax(board, searchDepth - 1, false, memo, evaluateBoard);
+	} else if (algorithm === "pattern") {
+        // パターンベース評価
+        score = expectimax(board, searchDepth - 1, false, memo, evaluatePattern);
+    }
 
 	self.postMessage({ move, score });
 };
@@ -91,14 +90,14 @@ function simulateMove(currentBoard, direction) {
  * @param {boolean} isPlayerTurn - true:プレイヤーの番(Max), false:コンピュータの番(Chance)
  * @returns {number} この盤面の評価値
  */
-function expectimax(currentBoard, depth, isPlayerTurn, memo) {
+function expectimax(currentBoard, depth, isPlayerTurn, memo, evaluationFunction) {
 	const boardKey = currentBoard.toString();
 	if (memo.has(boardKey)) {
 		return memo.get(boardKey);
 	}
 
 	if (depth === 0) {
-		return evaluateBoard(currentBoard);
+		return evaluationFunction(currentBoard);
 	}
 
 	let resultScore;
@@ -109,7 +108,7 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo) {
 		for (const move of moves) {
 			const simResult = simulateMove(currentBoard, move);
 			if (simResult.moved) {
-				maxScore = Math.max(maxScore, expectimax(simResult.board, depth - 1, false, memo));
+				maxScore = Math.max(maxScore, expectimax(simResult.board, depth - 1, false, memo, evaluationFunction));
 			}
 		}
 		resultScore = maxScore === -Infinity ? 0 : maxScore;
@@ -122,7 +121,7 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo) {
 			// プレイヤーのターンに切り替えることで、実際に移動可能かどうかの判定を行わせる。
 			// ゲームオーバーの判定はプレイヤーのターンロジックが担当する。
 			// ここで depth - 1 しないと無限再帰に陥る可能性があるので注意。
-			return expectimax(currentBoard, depth - 1, true, memo);
+			return expectimax(currentBoard, depth - 1, true, memo, evaluationFunction);
 		}
 
 		let totalScore = 0;
@@ -130,12 +129,12 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo) {
 			// 2が90%の確率で出現
 			const newBoard2 = currentBoard.map((row) => [...row]);
 			newBoard2[cell.r][cell.c] = 2;
-			totalScore += 0.9 * expectimax(newBoard2, depth - 1, true, memo);
+			totalScore += 0.9 * expectimax(newBoard2, depth - 1, true, memo, evaluationFunction);
 
 			// 4が10%の確率で出現
 			const newBoard4 = currentBoard.map((row) => [...row]);
 			newBoard4[cell.r][cell.c] = 4;
-			totalScore += 0.1 * expectimax(newBoard4, depth - 1, true, memo);
+			totalScore += 0.1 * expectimax(newBoard4, depth - 1, true, memo, evaluationFunction);
 		}
 		resultScore = totalScore / emptyCells.length;
 	}
@@ -186,7 +185,7 @@ function evaluateBoard(currentBoard) {
 	const monotonicity = calculateMonotonicity(currentBoard);
 	const maxTileBonus = isMaxTileInCorner(currentBoard, maxTileValue) ? maxTileValue : 0;
 
-	return smoothness * HEURISTIC_WEIGHTS.smoothness + monotonicity * HEURISTIC_WEIGHTS.monotonicity + Math.log(emptyCells + 1) * HEURISTIC_WEIGHTS.emptyCells + maxTileBonus * HEURISTIC_WEIGHTS.maxTile;
+	return smoothness * HEURISTIC_WEIGHTS.smoothness + monotonicity * HEURISTIC_WEIGHTS.monotonicity + getLog2(emptyCells + 1) * HEURISTIC_WEIGHTS.emptyCells + maxTileBonus * HEURISTIC_WEIGHTS.maxTile;
 }
 
 /**
@@ -221,54 +220,39 @@ function calculateSmoothness(currentBoard) {
 function calculateMonotonicity(currentBoard) {
 	let totals = [0, 0, 0, 0]; // up, down, left, right
 
-	// 左右の単調性
+	// 左右の単調性 (最適化版)
 	for (let r = 0; r < size; r++) {
-		let currentIdx = 0;
-		const currentRow = currentBoard[r];
-		while (currentIdx < size - 1) {
-			// 現在地から最初の非ゼロタイルを探す
-			while (currentIdx < size - 1 && currentRow[currentIdx] === 0) currentIdx++;
+		const nonZeroLogs = currentBoard[r].map(getLog2).filter(v => v > 0);
+		if (nonZeroLogs.length < 2) continue;
 
-			let nextIdx = currentIdx + 1;
-			// 次の非ゼロタイルを探す
-			while (nextIdx < size && currentRow[nextIdx] === 0) nextIdx++;
-
-			if (nextIdx >= size) break;
-
-			const currentValue = getLog2(currentRow[currentIdx]);
-			const nextValue = getLog2(currentRow[nextIdx]);
-
-			if (currentValue > nextValue) {
-				totals[2] += nextValue - currentValue; // 左方向へのペナルティ
-			} else if (nextValue > currentValue) {
-				totals[3] += currentValue - nextValue; // 右方向へのペナルティ
+		for (let i = 0; i < nonZeroLogs.length - 1; i++) {
+			const currentLog = nonZeroLogs[i];
+			const nextLog = nonZeroLogs[i + 1];
+			if (currentLog > nextLog) {
+				totals[2] += nextLog - currentLog; // 左方向へのペナルティ (値が減少)
+			} else if (nextLog > currentLog) {
+				totals[3] += currentLog - nextLog; // 右方向へのペナルティ (値が増加)
 			}
-			currentIdx = nextIdx;
 		}
 	}
 
-	// 上下の単調性
+	// 上下の単調性 (最適化版)
 	for (let c = 0; c < size; c++) {
-		let currentIdx = 0;
-		while (currentIdx < size - 1) {
-			// 現在地から最初の非ゼロタイルを探す
-			while (currentIdx < size - 1 && currentBoard[currentIdx][c] === 0) currentIdx++;
+		const column = [];
+		for(let r=0; r<size; r++) {
+			column.push(currentBoard[r][c]);
+		}
+		const nonZeroLogs = column.map(getLog2).filter(v => v > 0);
+		if (nonZeroLogs.length < 2) continue;
 
-			let nextIdx = currentIdx + 1;
-			// 次の非ゼロタイルを探す
-			while (nextIdx < size && currentBoard[nextIdx][c] === 0) nextIdx++;
-
-			if (nextIdx >= size) break;
-
-			const currentValue = getLog2(currentBoard[currentIdx][c]);
-			const nextValue = getLog2(currentBoard[nextIdx][c]);
-
-			if (currentValue > nextValue) {
-				totals[0] += nextValue - currentValue; // 上方向へのペナルティ
-			} else if (nextValue > currentValue) {
-				totals[1] += currentValue - nextValue; // 下方向へのペナルティ
+		for (let i = 0; i < nonZeroLogs.length - 1; i++) {
+			const currentLog = nonZeroLogs[i];
+			const nextLog = nonZeroLogs[i+1];
+			if (currentLog > nextLog) {
+				totals[0] += nextLog - currentLog; // 上方向へのペナルティ (値が減少)
+			} else if (nextLog > currentLog) {
+				totals[1] += currentLog - nextLog; // 下方向へのペナルティ (値が増加)
 			}
-			currentIdx = nextIdx;
 		}
 	}
 
@@ -281,62 +265,63 @@ function isMaxTileInCorner(currentBoard, maxTile) {
 }
 
 // =========================================================================
-// モンテカルロ木探索 (MCTS) - 改良版
-// 深いランダムプレイアウトの代わりに、限定的なプレイアウトとヒューリスティック評価を組み合わせる
+// パターンベースの評価関数 (新アルゴリズム)
 // =========================================================================
 
-const PLAYOUT_DEPTH = 5; // ランダムプレイアウトを行う手数
+// 蛇行パターンの重み。指数的に重みを付けることで、大きなタイルが正しい位置にあることを強く推奨する。
+const SNAKE_PATTERN_WEIGHTS = [
+    [15, 14, 13, 12],
+    [ 8,  9, 10, 11],
+    [ 7,  6,  5,  4],
+    [ 0,  1,  2,  3]
+].map(row => row.map(w => Math.pow(4, w)));
 
-function runMCTS(initialBoard, simulations) {
-	let totalScore = 0;
-	for (let i = 0; i < simulations; i++) {
-		// 初期盤面をコピーしてプレイアウトに使用
-		const boardCopy = initialBoard.map((row) => [...row]);
-		totalScore += runRandomPlayout(boardCopy);
-	}
-	return totalScore / simulations;
+/**
+ * 行列を90度回転させる
+ */
+function rotateMatrix(matrix) {
+    const N = matrix.length;
+    const result = Array.from({ length: N }, () => Array(N).fill(0));
+    for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+            result[c][N - 1 - r] = matrix[r][c];
+        }
+    }
+    return result;
 }
 
-function runRandomPlayout(board) {
-	let currentBoard = board; // メインループでコピーされた盤面を直接変更する
-	let playoutScore = 0;
-	let isGameOver = false;
+/**
+ * 特定のパターンに対する盤面のスコアを計算する
+ */
+function getPatternScore(board, pattern) {
+    let score = 0;
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            if (board[r][c] !== 0) {
+                // タイルの値の対数とパターンの重みを乗算する
+                score += getLog2(board[r][c]) * pattern[r][c];
+            }
+        }
+    }
+    return score;
+}
 
-	// 固定された手数 (PLAYOUT_DEPTH) だけ、ランダムにゲームを進める
-	const moves = ["up", "down", "left", "right"];
-	for (let i = 0; i < PLAYOUT_DEPTH && !isGameOver; i++) {
-		const validMoves = [];
+/**
+ * パターン評価: 蛇行パターンにどれだけ近いかを評価する
+ * 4つの回転をすべて試し、最もスコアが高いものをその盤面の評価値とする。
+ */
+function evaluatePattern(currentBoard) {
+    let bestScore = 0;
+    let currentPattern = SNAKE_PATTERN_WEIGHTS;
 
-		// 有効な手をすべて見つける
-		for (const move of moves) {
-			const simResult = simulateMove(currentBoard, move);
-			if (simResult.moved) {
-				validMoves.push(simResult); // board, score, moved を含むオブジェクト
-			}
-		}
+    // 4つの回転方向をすべて試す
+    for (let i = 0; i < 4; i++) {
+        bestScore = Math.max(bestScore, getPatternScore(currentBoard, currentPattern));
+        currentPattern = rotateMatrix(currentPattern);
+    }
 
-		if (validMoves.length > 0) {
-			// 有効な手の中からランダムに一つ選ぶ
-			const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
-			currentBoard = randomMove.board;
-			playoutScore += randomMove.score; // マージによるスコアを加算
-
-			// 新しいタイルをランダムに追加
-			const emptyCells = getEmptyCells(currentBoard);
-			if (emptyCells.length > 0) {
-				const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-				currentBoard[r][c] = Math.random() < 0.9 ? 2 : 4;
-			} else {
-				// 空きマスがなければ、このプレイアウトはここで終了
-				isGameOver = true;
-			}
-		} else {
-			// 有効な手がなければゲームオーバー
-			isGameOver = true;
-		}
-	}
-
-	// プレイアウト後の盤面をヒューリスティック関数で評価し、
-	// プレイアウト中に得たスコアと合算する。
-	return playoutScore + evaluateBoard(currentBoard);
+    // パターンスコアに加えて、空きマスボーナスも加算する (重要)
+    const emptyCells = getEmptyCells(currentBoard).length;
+    // 既存のヒューリスティックの重みを流用
+    return bestScore + (Math.log2(emptyCells + 1) * HEURISTIC_WEIGHTS.emptyCells);
 }
