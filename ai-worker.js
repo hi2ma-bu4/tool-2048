@@ -20,6 +20,9 @@ self.onmessage = function (e) {
 	} else if (algorithm === "pattern") {
 		// パターンベース評価
 		score = expectimax(board, searchDepth - 1, false, memo, evaluatePattern);
+	} else if (algorithm === "snake") {
+		// Snake Pattern評価
+		score = expectimax(board, searchDepth - 1, false, memo, evaluateSnakePattern);
 	}
 
 	self.postMessage({ move, score });
@@ -125,16 +128,20 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo, evaluationFunction)
 		}
 
 		let totalScore = 0;
+		// 盤面のコピーをループの外で行う最適化は、再帰呼び出しでボードが変更される可能性があるため、
+		// 各ケースで独立したコピーを維持する方が安全で、バグのリスクが低い。
+		// 可読性と安全性を優先し、現状のロジックを維持する。
+		// ただし、コードの意図を明確にするため、コメントを追加する。
 		for (const cell of emptyCells) {
-			// 2が90%の確率で出現
-			const newBoard2 = currentBoard.map((row) => [...row]);
-			newBoard2[cell.r][cell.c] = 2;
-			totalScore += 0.9 * expectimax(newBoard2, depth - 1, true, memo, evaluationFunction);
+			// 2が追加されるケース (確率90%)
+			const boardWith2 = currentBoard.map((row) => [...row]);
+			boardWith2[cell.r][cell.c] = 2;
+			totalScore += 0.9 * expectimax(boardWith2, depth - 1, true, memo, evaluationFunction);
 
-			// 4が10%の確率で出現
-			const newBoard4 = currentBoard.map((row) => [...row]);
-			newBoard4[cell.r][cell.c] = 4;
-			totalScore += 0.1 * expectimax(newBoard4, depth - 1, true, memo, evaluationFunction);
+			// 4が追加されるケース (確率10%)
+			const boardWith4 = currentBoard.map((row) => [...row]);
+			boardWith4[cell.r][cell.c] = 4;
+			totalScore += 0.1 * expectimax(boardWith4, depth - 1, true, memo, evaluationFunction);
 		}
 		resultScore = totalScore / emptyCells.length;
 	}
@@ -275,6 +282,24 @@ const SNAKE_PATTERN_WEIGHTS = [
 	[7, 6, 5, 4],
 	[0, 1, 2, 3],
 ].map((row) => row.map((w) => Math.pow(4, w)));
+
+const SNAKE_PATTERN_WEIGHTS_SINGLE = [
+    [10, 8, 7, 6.5],
+    [-.5, .7, 1.5, 3],
+    [-1.5, -1, 1, 2],
+    [-3, -2, -1.5, -1]
+];
+
+function evaluateSnakePattern(board) {
+    let score = 0;
+    // Snake pattern weights
+    for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+            score += SNAKE_PATTERN_WEIGHTS_SINGLE[i][j] * board[i][j];
+        }
+    }
+    return score;
+}
 
 /**
  * 行列を90度回転させる
