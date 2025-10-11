@@ -8,13 +8,14 @@ let MERGE_LIMIT = 2048;
 
 // メインスレッドからのメッセージを受信
 self.onmessage = function(e) {
-    const { board, searchDepth, heuristicWeights, mergeLimit } = e.data;
+    const { move, board, searchDepth, heuristicWeights, mergeLimit } = e.data;
     HEURISTIC_WEIGHTS = heuristicWeights;
     MERGE_LIMIT = mergeLimit;
 
     // 計算を開始し、結果をメインスレッドに送信
-    const moveScores = findBestMoveScores(board, searchDepth);
-    self.postMessage(moveScores);
+    const memo = new Map();
+    const score = expectimax(board, searchDepth - 1, false, memo);
+    self.postMessage({ move, score });
 };
 
 // --- ゲームロジックのコア部分 (Worker内で完結させるため) ---
@@ -50,28 +51,30 @@ function transpose(matrix) {
 function simulateMove(currentBoard, direction) {
     let tempBoard = currentBoard.map((row) => [...row]);
     let moveScore = 0;
-    let boardChanged = false;
+    const originalBoardStr = tempBoard.toString();
 
-    if (direction === "up" || direction === "down") tempBoard = transpose(tempBoard);
+    if (direction === "up" || direction === "down") {
+        tempBoard = transpose(tempBoard);
+    }
 
     for (let i = 0; i < size; i++) {
         let row = tempBoard[i];
-        if (direction === "right" || direction === "down") row.reverse();
-
-        const result = operateRow(row);
-
-        if (result.changed) {
-            boardChanged = true;
+        if (direction === "right" || direction === "down") {
+            row.reverse();
         }
-
-        if (direction === "right" || direction === "down") result.newRow.reverse();
-
+        const result = operateRow(row);
+        if (direction === "right" || direction === "down") {
+            result.newRow.reverse();
+        }
         tempBoard[i] = result.newRow;
         moveScore += result.score;
     }
 
-    if (direction === "up" || direction === "down") tempBoard = transpose(tempBoard);
+    if (direction === "up" || direction === "down") {
+        tempBoard = transpose(tempBoard);
+    }
 
+    const boardChanged = tempBoard.toString() !== originalBoardStr;
     return { board: tempBoard, score: moveScore, moved: boardChanged };
 }
 
@@ -80,22 +83,6 @@ function simulateMove(currentBoard, direction) {
 // AIの中核部分
 // =========================================================================
 
-/**
- * 各手の評価スコアを計算する関数
- */
-function findBestMoveScores(board, searchDepth) {
-    const memo = new Map(); // メモ化用のキャッシュ
-    const moveScores = { up: -Infinity, down: -Infinity, left: -Infinity, right: -Infinity };
-    const moves = ["up", "down", "left", "right"];
-
-    for (const move of moves) {
-        const simResult = simulateMove(board, move);
-        if (simResult.moved) {
-            moveScores[move] = expectimax(simResult.board, searchDepth, false, memo);
-        }
-    }
-    return moveScores;
-}
 
 /**
  * Expectimaxアルゴリズムの本体 (再帰関数)
@@ -112,6 +99,7 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo) {
 
     let resultScore;
     if (isPlayerTurn) {
+        // プレイヤーのターン: 最善の手を見つける (Max)
         let maxScore = -Infinity;
         const moves = ["up", "down", "left", "right"];
         let hasMoved = false;
@@ -122,17 +110,19 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo) {
                 maxScore = Math.max(maxScore, expectimax(simResult.board, depth - 1, false, memo));
             }
         }
-
+        // 動ける手がない場合 (ゲームオーバー) は、非常に低い評価を返す
         if (!hasMoved) {
-            return -Infinity; // 動ける手がない場合は最低評価
+            return -1e100; // -Infinityの代わりに非常に大きな負の数
         }
         resultScore = maxScore;
 
     } else {
+        // コンピュータのターン: 全ての可能性の平均を計算 (Expectation)
         const emptyCells = getEmptyCells(currentBoard);
+        // このターンで空きマスがない場合、それはプレイヤーの次の手でゲームオーバーになることを意味する。
+        // 評価はプレイヤーのターンで行うため、ここでは評価を続行する。
         if (emptyCells.length === 0) {
-            // ゲームオーバーだが、この状態はプレイヤーのターンで評価されるべき
-            return -Infinity;
+            return evaluateBoard(currentBoard);
         }
 
         let totalScore = 0;
@@ -209,6 +199,7 @@ function calculateSmoothness(currentBoard) {
 // Math.log2の計算結果をキャッシュ
 const log2Cache = {};
 function getLog2(val) {
+    if (val === 0) return 0; // 0の場合は0を返す
     if (!log2Cache[val]) {
         log2Cache[val] = Math.log2(val);
     }
