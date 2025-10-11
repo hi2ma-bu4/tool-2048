@@ -5,7 +5,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	const scoreDisplay = document.getElementById("score");
 	const calculateBtn = document.getElementById("calculate-btn");
 	const resetBtn = document.getElementById("reset-btn");
-	const tileValueInput = document.getElementById("tile-value-input");
+	const searchDepthInput = document.getElementById("search-depth-input");
+	const realtimeCheckbox = document.getElementById("realtime-checkbox");
 	const recUp = document.getElementById("rec-up");
 	const recDown = document.getElementById("rec-down");
 	const recLeft = document.getElementById("rec-left");
@@ -19,8 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	// AIの設定
 	// =========================================================================
 	// AIが何手先まで読み込むか。数値を大きくすると賢くなるが計算時間が長くなる。
-	// (3-4程度が妥当。5以上にすると環境によってはフリーズする可能性があります)
-	const SEARCH_DEPTH = 5;
+	let SEARCH_DEPTH = 3; // デフォルト値
 
 	// 評価関数で使う各要素の「重み」。これらのバランスでAIの戦略が変わる。
 	const HEURISTIC_WEIGHTS = {
@@ -73,32 +73,79 @@ document.addEventListener("DOMContentLoaded", () => {
 		scoreDisplay.textContent = score;
 	}
 
-	gridContainer.addEventListener("click", (event) => {
+	// --- タイル操作のイベントリスナー ---
+	let pressTimer = null;
+	let isLongPress = false;
+
+	gridContainer.addEventListener("mousedown", (event) => {
 		const cell = event.target.closest(".grid-cell");
 		if (cell) {
-			const row = parseInt(cell.dataset.row);
-			const col = parseInt(cell.dataset.col);
+			pressTimer = setTimeout(() => {
+				isLongPress = true;
+				const row = parseInt(cell.dataset.row);
+				const col = parseInt(cell.dataset.col);
+				board[row][col] = 0; // 長押しでタイルを削除
+				renderBoard();
+				if (isRealtimeCalculation()) runAI();
+			}, 500); // 500msで長押しと判定
+		}
+	});
 
-			// ユーザーが指定した値を取得
-			let value = parseInt(tileValueInput.value);
-
-			// 値が2のべき乗かチェック (簡易的)
-			if (value > 0 && (value & (value - 1)) === 0) {
-				// セルが空、または同じ値なら上書き/削除
-				if (board[row][col] === value) {
-					board[row][col] = 0; // 同じ値をクリックしたら削除
+	gridContainer.addEventListener("mouseup", (event) => {
+		clearTimeout(pressTimer);
+		if (!isLongPress) {
+			const cell = event.target.closest(".grid-cell");
+			if (cell) {
+				const row = parseInt(cell.dataset.row);
+				const col = parseInt(cell.dataset.col);
+				const currentValue = board[row][col];
+				if (currentValue === 0) {
+					board[row][col] = 2; // 空のセルは2から始める
 				} else {
-					board[row][col] = value;
+					board[row][col] = currentValue * 2; // クリックで倍にする
 				}
 				renderBoard();
-			} else {
-				alert("2のべき乗の数値を入力してください (例: 2, 4, 8, 16...)");
+				if (isRealtimeCalculation()) runAI();
 			}
 		}
+		isLongPress = false; // フラグをリセット
+	});
+
+    // マウスがグリッド外に出た場合もタイマーをクリア
+	gridContainer.addEventListener("mouseleave", () => {
+		clearTimeout(pressTimer);
+		isLongPress = false;
 	});
 
 	resetBtn.addEventListener("click", initializeBoard);
 	calculateBtn.addEventListener("click", runAI);
+
+	// --- 設定のイベントリスナー ---
+
+	searchDepthInput.addEventListener("change", () => {
+		let depth = parseInt(searchDepthInput.value);
+		if (depth >= 1 && depth <= 6) {
+			SEARCH_DEPTH = depth;
+			if (isRealtimeCalculation()) runAI();
+		} else {
+			alert("探索深度は1から6の間で設定してください。");
+			searchDepthInput.value = SEARCH_DEPTH;
+		}
+	});
+
+	realtimeCheckbox.addEventListener("change", () => {
+		if (isRealtimeCalculation()) {
+			calculateBtn.style.display = "none";
+			runAI();
+		} else {
+			calculateBtn.style.display = "inline-block";
+		}
+	});
+
+	function isRealtimeCalculation() {
+		return realtimeCheckbox.checked;
+	}
+
 
 	// --- ゲームのコアロジック ---
 
@@ -173,15 +220,47 @@ document.addEventListener("DOMContentLoaded", () => {
 	 * 計算結果をUIに表示する
 	 */
 	function displayRecommendations(scores) {
+		const recommendationItems = {
+			up: recUp.parentElement,
+			down: recDown.parentElement,
+			left: recLeft.parentElement,
+			right: recRight.parentElement,
+		};
+		// remove existing highlights
+		Object.values(recommendationItems).forEach(item => {
+			item.classList.remove("highlight-best", "highlight-worst");
+		});
+
+
 		const totalScore = Object.values(scores).reduce((sum, s) => sum + s, 0);
-		let hasMoves = false;
 
 		if (totalScore > 0) {
-			hasMoves = true;
-			recUp.textContent = `${Math.round((scores.up / totalScore) * 100)}%`;
-			recDown.textContent = `${Math.round((scores.down / totalScore) * 100)}%`;
-			recLeft.textContent = `${Math.round((scores.left / totalScore) * 100)}%`;
-			recRight.textContent = `${Math.round((scores.right / totalScore) * 100)}%`;
+			const percentages = {
+				up: Math.round((scores.up / totalScore) * 100),
+				down: Math.round((scores.down / totalScore) * 100),
+				left: Math.round((scores.left / totalScore) * 100),
+				right: Math.round((scores.right / totalScore) * 100),
+			};
+
+			recUp.textContent = `${percentages.up}%`;
+			recDown.textContent = `${percentages.down}%`;
+			recLeft.textContent = `${percentages.left}%`;
+			recRight.textContent = `${percentages.right}%`;
+
+			const validMoves = Object.keys(scores).filter(move => scores[move] > 0);
+
+			if(validMoves.length > 0) {
+				const bestMove = validMoves.reduce((a, b) => percentages[a] > percentages[b] ? a : b);
+				recommendationItems[bestMove].classList.add("highlight-best");
+
+				if (validMoves.length > 1) {
+					const worstMove = validMoves.reduce((a, b) => percentages[a] < percentages[b] ? a : b);
+					if(bestMove !== worstMove) {
+						recommendationItems[worstMove].classList.add("highlight-worst");
+					}
+				}
+			}
+
 			aiMessage.textContent = "計算が完了しました。";
 		} else {
 			recUp.textContent = "0%";
@@ -389,6 +468,91 @@ document.addEventListener("DOMContentLoaded", () => {
 	function isMaxTileInCorner(currentBoard, maxTile) {
 		const corners = [currentBoard[0][0], currentBoard[0][size - 1], currentBoard[size - 1][0], currentBoard[size - 1][size - 1]];
 		return corners.includes(maxTile);
+	}
+
+	// --- キーボード操作 ---
+	document.addEventListener("keydown", (event) => {
+		let direction = null;
+		switch (event.key) {
+			case "ArrowUp":
+			case "w":
+				direction = "up";
+				break;
+			case "ArrowDown":
+			case "s":
+				direction = "down";
+				break;
+			case "ArrowLeft":
+			case "a":
+				direction = "left";
+				break;
+			case "ArrowRight":
+			case "d":
+				direction = "right";
+				break;
+			default:
+				return; // 関係ないキーは無視
+		}
+		event.preventDefault(); // スクロールなどを防ぐ
+		moveBoard(direction);
+	});
+
+	function moveBoard(direction) {
+		const result = simulateMove(board, direction);
+		if (result.moved) {
+			board = result.board;
+			updateScore(score + result.score);
+			addRandomTile();
+			renderBoard();
+			if (isRealtimeCalculation()) {
+				runAI();
+			} else {
+				resetRecommendations();
+			}
+		}
+	}
+
+	function addRandomTile() {
+		const emptyCells = getEmptyCells(board);
+		if (emptyCells.length > 0) {
+			const { r, c } =
+				emptyCells[Math.floor(Math.random() * emptyCells.length)];
+			board[r][c] = Math.random() < 0.9 ? 2 : 4;
+		}
+	}
+
+
+	// --- スワイプ操作 ---
+	let touchStartX = 0;
+	let touchStartY = 0;
+	let touchEndX = 0;
+	let touchEndY = 0;
+
+	gridContainer.addEventListener("touchstart", (event) => {
+		touchStartX = event.changedTouches[0].screenX;
+		touchStartY = event.changedTouches[0].screenY;
+	}, { passive: true });
+
+	gridContainer.addEventListener("touchend", (event) => {
+		touchEndX = event.changedTouches[0].screenX;
+		touchEndY = event.changedTouches[0].screenY;
+		handleSwipe();
+	});
+
+	function handleSwipe() {
+		const diffX = touchEndX - touchStartX;
+		const diffY = touchEndY - touchStartY;
+		const threshold = 50; // 50px以上のスワイプを検知
+
+		if (Math.abs(diffX) > Math.abs(diffY)) { // 横方向のスワイプ
+			if (Math.abs(diffX) > threshold) {
+				moveBoard(diffX > 0 ? "right" : "left");
+			}
+		} else { // 縦方向のスワイyプ
+			if (Math.abs(diffY) > threshold) {
+				moveBoard(diffY > 0 ? "down" : "up");
+			}
+		}
 	}
 
 	// --- 初期化実行 ---
