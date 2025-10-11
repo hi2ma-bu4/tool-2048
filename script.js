@@ -433,7 +433,8 @@ document.addEventListener("DOMContentLoaded", () => {
 		const emptyCells = getEmptyCells(board);
 		if (emptyCells.length > 0) {
 			const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-			board[r][c] = Math.random() < 0.9 ? 2 : 4;
+			// board[r][c] = Math.random() < 0.9 ? 2 : 4;
+			board[r][c] = 2;
 		}
 	}
 
@@ -492,7 +493,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	function startAIAutoPlay() {
-		const interval = parseInt(aiIntervalInput.value, 10) || 1;
+		const interval = parseInt(aiIntervalInput.value, 10) || 0;
 		autoPlayIntervalId = setInterval(() => {
 			if (!isAICalculating) {
 				runAI(); // Workerに計算を依頼

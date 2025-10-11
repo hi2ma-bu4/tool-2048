@@ -17,12 +17,12 @@ self.onmessage = function (e) {
 	if (algorithm === "heuristic") {
 		// 従来のヒューリスティック評価
 		score = expectimax(board, searchDepth - 1, false, memo, evaluateBoard);
+	} else if (algorithm === "snake") {
+		// 蛇行パターン評価
+		score = expectimax(board, searchDepth - 1, false, memo, evaluateSnakePattern);
 	} else if (algorithm === "pattern") {
 		// パターンベース評価
 		score = expectimax(board, searchDepth - 1, false, memo, evaluatePattern);
-	} else if (algorithm === "snake") {
-		// Snake Pattern評価
-		score = expectimax(board, searchDepth - 1, false, memo, evaluateSnakePattern);
 	}
 
 	self.postMessage({ move, score });
@@ -272,7 +272,29 @@ function isMaxTileInCorner(currentBoard, maxTile) {
 }
 
 // =========================================================================
-// パターンベースの評価関数 (新アルゴリズム)
+// 蛇行パターンの評価関数
+// =========================================================================
+
+const SNAKE_PATTERN_WEIGHTS_SINGLE = [
+	[10, 8, 7, 6.5],
+	[-0.5, 0.7, 1.5, 3],
+	[-1.5, -1, 1, 2],
+	[-3, -2, -1.5, -1],
+];
+
+function evaluateSnakePattern(board) {
+	let score = 0;
+	// Snake pattern weights
+	for (let i = 0; i < 4; i++) {
+		for (let j = 0; j < 4; j++) {
+			score += SNAKE_PATTERN_WEIGHTS_SINGLE[i][j] * board[i][j];
+		}
+	}
+	return score;
+}
+
+// =========================================================================
+// パターンベースの評価関数
 // =========================================================================
 
 // 蛇行パターンの重み。指数的に重みを付けることで、大きなタイルが正しい位置にあることを強く推奨する。
@@ -282,24 +304,6 @@ const SNAKE_PATTERN_WEIGHTS = [
 	[7, 6, 5, 4],
 	[0, 1, 2, 3],
 ].map((row) => row.map((w) => Math.pow(4, w)));
-
-const SNAKE_PATTERN_WEIGHTS_SINGLE = [
-    [10, 8, 7, 6.5],
-    [-.5, .7, 1.5, 3],
-    [-1.5, -1, 1, 2],
-    [-3, -2, -1.5, -1]
-];
-
-function evaluateSnakePattern(board) {
-    let score = 0;
-    // Snake pattern weights
-    for (let i = 0; i < 4; i++) {
-        for (let j = 0; j < 4; j++) {
-            score += SNAKE_PATTERN_WEIGHTS_SINGLE[i][j] * board[i][j];
-        }
-    }
-    return score;
-}
 
 /**
  * 行列を90度回転させる
