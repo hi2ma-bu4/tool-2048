@@ -50,11 +50,24 @@
         <h2>設定</h2>
         <div class="setting-item">
             <label for="search-depth-input">探索深度 (AIの賢さ):</label>
-            <input type="number" id="search-depth-input" value="3" min="1" max="6">
+            <input type="number" id="search-depth-input" value="5" min="1" max="6">
+        </div>
+        <div class="setting-item">
+            <label for="merge-limit-input">結合可能な上限タイル:</label>
+            <input type="number" id="merge-limit-input" value="2048" step="2">
+        </div>
+        <div class="setting-item">
+            <input type="checkbox" id="auto-add-tile-checkbox" checked>
+            <label for="auto-add-tile-checkbox">移動後に自動でタイルを配置する</label>
         </div>
         <div class="setting-item">
             <input type="checkbox" id="realtime-checkbox">
             <label for="realtime-checkbox">リアルタイムで推奨手を計算する</label>
+        </div>
+        <div class="setting-item ai-auto-play-container">
+            <button id="ai-auto-play-btn">AI自動操作を開始</button>
+            <label for="ai-interval-input">実行間隔(ms):</label>
+            <input type="number" id="ai-interval-input" value="500" min="100" step="100">
         </div>
     </div>
 

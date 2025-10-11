@@ -7,14 +7,20 @@ document.addEventListener("DOMContentLoaded", () => {
 	const resetBtn = document.getElementById("reset-btn");
 	const searchDepthInput = document.getElementById("search-depth-input");
 	const realtimeCheckbox = document.getElementById("realtime-checkbox");
+    const autoAddTileCheckbox = document.getElementById("auto-add-tile-checkbox");
+    const mergeLimitInput = document.getElementById("merge-limit-input");
 	const recUp = document.getElementById("rec-up");
 	const recDown = document.getElementById("rec-down");
 	const recLeft = document.getElementById("rec-left");
 	const recRight = document.getElementById("rec-right");
 	const aiMessage = document.getElementById("ai-message");
+    const aiAutoPlayBtn = document.getElementById("ai-auto-play-btn");
+    const aiIntervalInput = document.getElementById("ai-interval-input");
 
 	const size = 4;
 	let score = 0;
+    let isAIAutoPlaying = false;
+    let autoPlayIntervalId = null;
 
 	// =========================================================================
 	// AIの設定
@@ -155,8 +161,10 @@ document.addEventListener("DOMContentLoaded", () => {
 	function operateRow(row) {
 		let newRow = row.filter((val) => val);
 		let newScore = 0;
+        const mergeLimit = parseInt(mergeLimitInput.value, 10) || Infinity;
+
 		for (let i = 0; i < newRow.length - 1; i++) {
-			if (newRow[i] === newRow[i + 1]) {
+			if (newRow[i] === newRow[i + 1] && newRow[i] < mergeLimit) {
 				newRow[i] *= 2;
 				newScore += newRow[i];
 				newRow.splice(i + 1, 1);
@@ -229,46 +237,45 @@ document.addEventListener("DOMContentLoaded", () => {
 			left: recLeft.parentElement,
 			right: recRight.parentElement,
 		};
-		// remove existing highlights
 		Object.values(recommendationItems).forEach((item) => {
 			item.classList.remove("highlight-best", "highlight-worst");
 		});
 
-		const totalScore = Object.values(scores).reduce((sum, s) => sum + s, 0);
+        const validMoves = Object.entries(scores).filter(([,score]) => score > -Infinity);
 
-		if (totalScore > 0) {
-			const percentages = {
-				up: Math.round((scores.up / totalScore) * 100),
-				down: Math.round((scores.down / totalScore) * 100),
-				left: Math.round((scores.left / totalScore) * 100),
-				right: Math.round((scores.right / totalScore) * 100),
-			};
+		if (validMoves.length > 0) {
+            const minScore = Math.min(...validMoves.map(([,score]) => score));
+            const normalizedScores = Object.fromEntries(
+                validMoves.map(([move, score]) => [move, score - minScore + 1]) // 最小スコアが1になるように正規化
+            );
 
-			recUp.textContent = `${percentages.up}%`;
-			recDown.textContent = `${percentages.down}%`;
-			recLeft.textContent = `${percentages.left}%`;
-			recRight.textContent = `${percentages.right}%`;
+            const totalScore = Object.values(normalizedScores).reduce((sum, s) => sum + s, 0);
 
-			const validMoves = Object.keys(scores).filter((move) => scores[move] > 0);
+			const percentages = { up: 0, down: 0, left: 0, right: 0 };
+            for(const [move, score] of Object.entries(normalizedScores)) {
+                percentages[move] = Math.round((score / totalScore) * 100);
+            }
 
-			if (validMoves.length > 0) {
-				const bestMove = validMoves.reduce((a, b) => (percentages[a] > percentages[b] ? a : b));
-				recommendationItems[bestMove].classList.add("highlight-best");
+			recUp.textContent = scores.up > -Infinity ? `${percentages.up}%` : "-%";
+			recDown.textContent = scores.down > -Infinity ? `${percentages.down}%` : "-%";
+			recLeft.textContent = scores.left > -Infinity ? `${percentages.left}%` : "-%";
+			recRight.textContent = scores.right > -Infinity ? `${percentages.right}%` : "-%";
 
-				if (validMoves.length > 1) {
-					const worstMove = validMoves.reduce((a, b) => (percentages[a] < percentages[b] ? a : b));
-					if (bestMove !== worstMove) {
-						recommendationItems[worstMove].classList.add("highlight-worst");
-					}
+            const bestMove = Object.keys(normalizedScores).reduce((a, b) => normalizedScores[a] > normalizedScores[b] ? a : b);
+			recommendationItems[bestMove].classList.add("highlight-best");
+
+			if (validMoves.length > 1) {
+                const worstMove = Object.keys(normalizedScores).reduce((a, b) => normalizedScores[a] < normalizedScores[b] ? a : b);
+				if (bestMove !== worstMove) {
+					recommendationItems[worstMove].classList.add("highlight-worst");
 				}
 			}
-
 			aiMessage.textContent = "計算が完了しました。";
 		} else {
-			recUp.textContent = "0%";
-			recDown.textContent = "0%";
-			recLeft.textContent = "0%";
-			recRight.textContent = "0%";
+			recUp.textContent = "-%";
+			recDown.textContent = "-%";
+			recLeft.textContent = "-%";
+			recRight.textContent = "-%";
 			aiMessage.textContent = "動かせる手がありません。";
 		}
 	}
@@ -278,15 +285,13 @@ document.addEventListener("DOMContentLoaded", () => {
 	 */
 	function findBestMoveScores() {
 		const memo = new Map(); // メモ化用のキャッシュ
-		const moveScores = { up: 0, down: 0, left: 0, right: 0 };
+		const moveScores = { up: -Infinity, down: -Infinity, left: -Infinity, right: -Infinity };
 		const moves = ["up", "down", "left", "right"];
 
 		for (const move of moves) {
 			const simResult = simulateMove(board, move);
 			if (simResult.moved) {
-				const score = expectimax(simResult.board, SEARCH_DEPTH, false, memo);
-				// スコアはマイナスの場合もあるので、0以上にする
-				moveScores[move] = Math.max(0, score);
+				moveScores[move] = expectimax(simResult.board, SEARCH_DEPTH, false, memo);
 			}
 		}
 		return moveScores;
@@ -504,7 +509,9 @@ document.addEventListener("DOMContentLoaded", () => {
 		if (result.moved) {
 			board = result.board;
 			updateScore(score + result.score);
-			addRandomTile();
+            if(autoAddTileCheckbox.checked){
+			    addRandomTile();
+            }
 			renderBoard();
 			if (isRealtimeCalculation()) {
 				runAI();
@@ -560,6 +567,45 @@ document.addEventListener("DOMContentLoaded", () => {
 			}
 		}
 	}
+
+	aiAutoPlayBtn.addEventListener("click", toggleAIAutoPlay);
+
+    function toggleAIAutoPlay() {
+        isAIAutoPlaying = !isAIAutoPlaying;
+        if (isAIAutoPlaying) {
+            aiAutoPlayBtn.textContent = "AI自動操作を停止";
+            aiAutoPlayBtn.classList.add("playing");
+            startAIAutoPlay();
+        } else {
+            aiAutoPlayBtn.textContent = "AI自動操作を開始";
+            aiAutoPlayBtn.classList.remove("playing");
+            stopAIAutoPlay();
+        }
+    }
+
+    function startAIAutoPlay() {
+        const interval = parseInt(aiIntervalInput.value, 10) || 500;
+        autoPlayIntervalId = setInterval(() => {
+            const moveScores = findBestMoveScores();
+            const validMoves = Object.entries(moveScores).filter(([,score]) => score > -Infinity);
+
+            if (validMoves.length > 0) {
+                const bestMove = validMoves.reduce((a, b) => (a[1] > b[1] ? a : b))[0];
+                moveBoard(bestMove);
+            } else {
+                // ゲームオーバー
+                stopAIAutoPlay();
+                aiMessage.textContent = "ゲームオーバー！AIは停止しました。";
+            }
+        }, interval);
+    }
+
+    function stopAIAutoPlay() {
+        clearInterval(autoPlayIntervalId);
+        isAIAutoPlaying = false;
+        aiAutoPlayBtn.textContent = "AI自動操作を開始";
+        aiAutoPlayBtn.classList.remove("playing");
+    }
 
 	// --- 初期化実行 ---
 	initializeBoard();
