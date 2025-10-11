@@ -97,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	function simulateMove(currentBoard, direction) {
-		let tempBoard = JSON.parse(JSON.stringify(currentBoard));
+		let tempBoard = currentBoard.map(row => [...row]);
 		let moveScore = 0;
 		let boardChanged = false;
 
@@ -157,6 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	 * 最善手を見つけるための起点となる関数
 	 */
 	function findBestMove() {
+		const memo = new Map(); // メモ化用のキャッシュ
 		let bestScore = -Infinity;
 		let bestMove = "none";
 		const moves = ["up", "down", "left", "right"];
@@ -165,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
 			const simResult = simulateMove(board, move);
 			if (simResult.moved) {
 				// その動きが可能なら、Expectimax探索を開始する
-				const score = expectimax(simResult.board, SEARCH_DEPTH, false); // 次はコンピュータの番
+				const score = expectimax(simResult.board, SEARCH_DEPTH, false, memo); // 次はコンピュータの番
 				if (score > bestScore) {
 					bestScore = score;
 					bestMove = move;
@@ -182,11 +183,17 @@ document.addEventListener("DOMContentLoaded", () => {
 	 * @param {boolean} isPlayerTurn - true:プレイヤーの番(Max), false:コンピュータの番(Chance)
 	 * @returns {number} この盤面の評価値
 	 */
-	function expectimax(currentBoard, depth, isPlayerTurn) {
+	function expectimax(currentBoard, depth, isPlayerTurn, memo) {
+		const boardKey = currentBoard.toString();
+		if (memo.has(boardKey)) {
+			return memo.get(boardKey);
+		}
+
 		if (depth === 0) {
 			return evaluateBoard(currentBoard); // 深さの限界に達したら盤面を評価
 		}
 
+		let resultScore;
 		if (isPlayerTurn) {
 			// --- プレイヤーのターン (Max Node) ---
 			// 可能な全ての手の中から、最も評価値が高くなるものを選ぶ
@@ -195,10 +202,10 @@ document.addEventListener("DOMContentLoaded", () => {
 			for (const move of moves) {
 				const simResult = simulateMove(currentBoard, move);
 				if (simResult.moved) {
-					maxScore = Math.max(maxScore, expectimax(simResult.board, depth - 1, false));
+					maxScore = Math.max(maxScore, expectimax(simResult.board, depth - 1, false, memo));
 				}
 			}
-			return maxScore === -Infinity ? 0 : maxScore; // 動けない場合は評価0
+			resultScore = maxScore === -Infinity ? 0 : maxScore; // 動けない場合は評価0
 		} else {
 			// --- コンピュータのターン (Chance Node) ---
 			// 全ての空きマスに2か4が出現する場合の「期待値」を計算する
@@ -210,19 +217,22 @@ document.addEventListener("DOMContentLoaded", () => {
 			let totalScore = 0;
 			// 2が90%の確率で出現
 			for (const cell of emptyCells) {
-				const newBoard = JSON.parse(JSON.stringify(currentBoard));
+				const newBoard = currentBoard.map(row => [...row]);
 				newBoard[cell.r][cell.c] = 2;
-				totalScore += 0.9 * expectimax(newBoard, depth - 1, true);
+				totalScore += 0.9 * expectimax(newBoard, depth - 1, true, memo);
 			}
 			// 4が10%の確率で出現
 			for (const cell of emptyCells) {
-				const newBoard = JSON.parse(JSON.stringify(currentBoard));
+				const newBoard = currentBoard.map(row => [...row]);
 				newBoard[cell.r][cell.c] = 4;
-				totalScore += 0.1 * expectimax(newBoard, depth - 1, true);
+				totalScore += 0.1 * expectimax(newBoard, depth - 1, true, memo);
 			}
 			// 期待値を返す
-			return totalScore / emptyCells.length;
+			resultScore = totalScore / emptyCells.length;
 		}
+
+		memo.set(boardKey, resultScore);
+		return resultScore;
 	}
 
 	/**
