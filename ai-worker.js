@@ -125,9 +125,12 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo) {
 		// コンピュータのターン: 全ての可能性の平均を計算 (Expectation)
 		const emptyCells = getEmptyCells(currentBoard);
 		// このターンで空きマスがない場合、それはプレイヤーの次の手でゲームオーバーになることを意味する。
-		// 評価はプレイヤーのターンで行うため、ここでは評価を続行する。
+		// ただし、盤面が埋まっていてもマージできる可能性はあるため、プレイヤーのターンに切り替えて評価を続行させる。
 		if (emptyCells.length === 0) {
-			return evaluateBoard(currentBoard);
+			// プレイヤーのターンに切り替えることで、実際に移動可能かどうかの判定を行わせる。
+			// ゲームオーバーの判定はプレイヤーのターンロジックが担当する。
+			// ここで depth - 1 しないと無限再帰に陥る可能性があるので注意。
+			return expectimax(currentBoard, depth - 1, true, memo);
 		}
 
 		let totalScore = 0;
@@ -267,25 +270,29 @@ function isMaxTileInCorner(currentBoard, maxTile) {
 }
 
 // =========================================================================
-// モンテカルロ木探索 (MCTS)
+// モンテカルロ木探索 (MCTS) - 改良版
+// 深いランダムプレイアウトの代わりに、限定的なプレイアウトとヒューリスティック評価を組み合わせる
 // =========================================================================
+
+const PLAYOUT_DEPTH = 15; // ランダムプレイアウトを行う手数
 
 function runMCTS(initialBoard, simulations) {
 	let totalScore = 0;
 	for (let i = 0; i < simulations; i++) {
-		totalScore += runRandomPlayout(initialBoard);
+		// 初期盤面をコピーしてプレイアウトに使用
+		const boardCopy = initialBoard.map((row) => [...row]);
+		totalScore += runRandomPlayout(boardCopy);
 	}
 	return totalScore / simulations;
 }
 
 function runRandomPlayout(board) {
-	let currentBoard = board.map((row) => [...row]);
-	let totalScore = 0;
+	let currentBoard = board; // メインループでコピーされた盤面を直接変更する
+	let playoutScore = 0;
 	let isGameOver = false;
 
-	// ゲームが終了するまでランダムに手を選択し続ける
-	// 予期せぬ無限ループを防ぐため、最大2000手までに制限
-	for (let i = 0; i < 2000 && !isGameOver; i++) {
+	// 固定された手数 (PLAYOUT_DEPTH) だけ、ランダムにゲームを進める
+	for (let i = 0; i < PLAYOUT_DEPTH && !isGameOver; i++) {
 		const moves = ["up", "down", "left", "right"];
 		const validMoves = [];
 
@@ -293,7 +300,7 @@ function runRandomPlayout(board) {
 		for (const move of moves) {
 			const simResult = simulateMove(currentBoard, move);
 			if (simResult.moved) {
-				validMoves.push({ move, ...simResult });
+				validMoves.push(simResult); // board, score, moved を含むオブジェクト
 			}
 		}
 
@@ -301,7 +308,7 @@ function runRandomPlayout(board) {
 			// 有効な手の中からランダムに一つ選ぶ
 			const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
 			currentBoard = randomMove.board;
-			totalScore += randomMove.score;
+			playoutScore += randomMove.score; // マージによるスコアを加算
 
 			// 新しいタイルをランダムに追加
 			const emptyCells = getEmptyCells(currentBoard);
@@ -309,7 +316,7 @@ function runRandomPlayout(board) {
 				const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
 				currentBoard[r][c] = Math.random() < 0.9 ? 2 : 4;
 			} else {
-				// 空きマスがなければゲームオーバー
+				// 空きマスがなければ、このプレイアウトはここで終了
 				isGameOver = true;
 			}
 		} else {
@@ -318,7 +325,7 @@ function runRandomPlayout(board) {
 		}
 	}
 
-	// 最終的な盤面のスコアと、プレイアウト中に得たスコアを合算する
-	// これにより、高いタイルを作るだけでなく、マージによるスコアも評価できる
-	return totalScore + Math.max(...currentBoard.flat());
+	// プレイアウト後の盤面をヒューリスティック関数で評価し、
+	// プレイアウト中に得たスコアと合算する。
+	return playoutScore + evaluateBoard(currentBoard);
 }
