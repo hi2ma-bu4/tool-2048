@@ -51,28 +51,30 @@ function transpose(matrix) {
 function simulateMove(currentBoard, direction) {
     let tempBoard = currentBoard.map((row) => [...row]);
     let moveScore = 0;
-    let boardChanged = false;
+    const originalBoardStr = tempBoard.toString();
 
-    if (direction === "up" || direction === "down") tempBoard = transpose(tempBoard);
+    if (direction === "up" || direction === "down") {
+        tempBoard = transpose(tempBoard);
+    }
 
     for (let i = 0; i < size; i++) {
         let row = tempBoard[i];
-        if (direction === "right" || direction === "down") row.reverse();
-
-        const result = operateRow(row);
-
-        if (result.changed) {
-            boardChanged = true;
+        if (direction === "right" || direction === "down") {
+            row.reverse();
         }
-
-        if (direction === "right" || direction === "down") result.newRow.reverse();
-
+        const result = operateRow(row);
+        if (direction === "right" || direction === "down") {
+            result.newRow.reverse();
+        }
         tempBoard[i] = result.newRow;
         moveScore += result.score;
     }
 
-    if (direction === "up" || direction === "down") tempBoard = transpose(tempBoard);
+    if (direction === "up" || direction === "down") {
+        tempBoard = transpose(tempBoard);
+    }
 
+    const boardChanged = tempBoard.toString() !== originalBoardStr;
     return { board: tempBoard, score: moveScore, moved: boardChanged };
 }
 
@@ -108,9 +110,9 @@ function expectimax(currentBoard, depth, isPlayerTurn, memo) {
                 maxScore = Math.max(maxScore, expectimax(simResult.board, depth - 1, false, memo));
             }
         }
-        // 動ける手がない場合 (ゲームオーバー) は最低スコアを返す
+        // 動ける手がない場合 (ゲームオーバー) は、非常に低い評価を返す
         if (!hasMoved) {
-            return -Infinity;
+            return -1e100; // -Infinityの代わりに非常に大きな負の数
         }
         resultScore = maxScore;
 

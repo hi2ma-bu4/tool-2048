@@ -1,4 +1,4 @@
-let board = [];
+var board = []; // Use var to make it a true global for testing
 document.addEventListener("DOMContentLoaded", () => {
 	// DOM要素の取得
 	const gridContainer = document.getElementById("grid-container");
@@ -159,6 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	// --- ゲームのコアロジック ---
 
 	function operateRow(row) {
+		const originalRowStr = row.join(',');
 		let newRow = row.filter((val) => val);
 		let newScore = 0;
 		const mergeLimit = parseInt(mergeLimitInput.value, 10) || Infinity;
@@ -173,7 +174,9 @@ document.addEventListener("DOMContentLoaded", () => {
 		while (newRow.length < size) {
 			newRow.push(0);
 		}
-		return { newRow, score: newScore };
+
+		const changed = originalRowStr !== newRow.join(',');
+		return { newRow, score: newScore, changed: changed };
 	}
 
 	function transpose(matrix) {
@@ -183,27 +186,30 @@ document.addEventListener("DOMContentLoaded", () => {
 	function simulateMove(currentBoard, direction) {
 		let tempBoard = currentBoard.map((row) => [...row]);
 		let moveScore = 0;
-		let boardChanged = false;
+		const originalBoardStr = tempBoard.toString();
 
-		const originalBoardStr = tempBoard.toString(); // より高速な比較方法
-
-		if (direction === "up" || direction === "down") tempBoard = transpose(tempBoard);
+		if (direction === "up" || direction === "down") {
+			tempBoard = transpose(tempBoard);
+		}
 
 		for (let i = 0; i < size; i++) {
 			let row = tempBoard[i];
-			if (direction === "right" || direction === "down") row.reverse();
+			if (direction === "right" || direction === "down") {
+				row.reverse();
+			}
 			const result = operateRow(row);
-			if (direction === "right" || direction === "down") result.newRow.reverse();
+			if (direction === "right" || direction === "down") {
+				result.newRow.reverse();
+			}
 			tempBoard[i] = result.newRow;
 			moveScore += result.score;
 		}
 
-		if (direction === "up" || direction === "down") tempBoard = transpose(tempBoard);
-
-		if (JSON.stringify(tempBoard) !== originalBoardStr) {
-			boardChanged = true;
+		if (direction === "up" || direction === "down") {
+			tempBoard = transpose(tempBoard);
 		}
 
+		const boardChanged = tempBoard.toString() !== originalBoardStr;
 		return { board: tempBoard, score: moveScore, moved: boardChanged };
 	}
 
@@ -215,6 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	let isAICalculating = false;
 	let moveScores = {};
 	let completedWorkers = 0;
+	let tasks = [];
 
 	function initializeWorkers() {
 		if (window.Worker) {
@@ -225,8 +232,8 @@ document.addEventListener("DOMContentLoaded", () => {
 					moveScores[move] = score;
 					completedWorkers++;
 
-					// すべてのワーカーから結果が返ってきたら処理を完了
-					if (completedWorkers === Object.keys(moveScores).length) {
+					// 送信したタスクの数と完了したワーカーの数が一致したら、計算を完了
+					if (completedWorkers === tasks.length) {
 						finishAICalculation();
 					}
 				};
@@ -241,6 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	function runAI() {
 		if (isAICalculating) return;
 
+		moveScores = {}; // ★バグ修正: 計算結果をリセット
 		resetRecommendations();
 		aiMessage.textContent = "AIが計算中です...";
 		calculateBtn.disabled = true;
@@ -248,7 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 		const mergeLimit = parseInt(mergeLimitInput.value, 10) || Infinity;
 		const moves = ["up", "down", "left", "right"];
-		const tasks = [];
+		tasks = []; // Reset the global tasks array
 
 		// 各方向への移動をシミュレートし、有効な手のみをタスクとして追加
 		for (const move of moves) {
