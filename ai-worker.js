@@ -18,9 +18,9 @@ self.onmessage = function (e) {
 		// 従来のヒューリスティック評価
 		score = expectimax(board, searchDepth - 1, false, memo, evaluateBoard);
 	} else if (algorithm === "pattern") {
-        // パターンベース評価
-        score = expectimax(board, searchDepth - 1, false, memo, evaluatePattern);
-    }
+		// パターンベース評価
+		score = expectimax(board, searchDepth - 1, false, memo, evaluatePattern);
+	}
 
 	self.postMessage({ move, score });
 };
@@ -222,7 +222,7 @@ function calculateMonotonicity(currentBoard) {
 
 	// 左右の単調性 (最適化版)
 	for (let r = 0; r < size; r++) {
-		const nonZeroLogs = currentBoard[r].map(getLog2).filter(v => v > 0);
+		const nonZeroLogs = currentBoard[r].map(getLog2).filter((v) => v > 0);
 		if (nonZeroLogs.length < 2) continue;
 
 		for (let i = 0; i < nonZeroLogs.length - 1; i++) {
@@ -239,15 +239,15 @@ function calculateMonotonicity(currentBoard) {
 	// 上下の単調性 (最適化版)
 	for (let c = 0; c < size; c++) {
 		const column = [];
-		for(let r=0; r<size; r++) {
+		for (let r = 0; r < size; r++) {
 			column.push(currentBoard[r][c]);
 		}
-		const nonZeroLogs = column.map(getLog2).filter(v => v > 0);
+		const nonZeroLogs = column.map(getLog2).filter((v) => v > 0);
 		if (nonZeroLogs.length < 2) continue;
 
 		for (let i = 0; i < nonZeroLogs.length - 1; i++) {
 			const currentLog = nonZeroLogs[i];
-			const nextLog = nonZeroLogs[i+1];
+			const nextLog = nonZeroLogs[i + 1];
 			if (currentLog > nextLog) {
 				totals[0] += nextLog - currentLog; // 上方向へのペナルティ (値が減少)
 			} else if (nextLog > currentLog) {
@@ -270,40 +270,40 @@ function isMaxTileInCorner(currentBoard, maxTile) {
 
 // 蛇行パターンの重み。指数的に重みを付けることで、大きなタイルが正しい位置にあることを強く推奨する。
 const SNAKE_PATTERN_WEIGHTS = [
-    [15, 14, 13, 12],
-    [ 8,  9, 10, 11],
-    [ 7,  6,  5,  4],
-    [ 0,  1,  2,  3]
-].map(row => row.map(w => Math.pow(4, w)));
+	[15, 14, 13, 12],
+	[8, 9, 10, 11],
+	[7, 6, 5, 4],
+	[0, 1, 2, 3],
+].map((row) => row.map((w) => Math.pow(4, w)));
 
 /**
  * 行列を90度回転させる
  */
 function rotateMatrix(matrix) {
-    const N = matrix.length;
-    const result = Array.from({ length: N }, () => Array(N).fill(0));
-    for (let r = 0; r < N; r++) {
-        for (let c = 0; c < N; c++) {
-            result[c][N - 1 - r] = matrix[r][c];
-        }
-    }
-    return result;
+	const N = matrix.length;
+	const result = Array.from({ length: N }, () => Array(N).fill(0));
+	for (let r = 0; r < N; r++) {
+		for (let c = 0; c < N; c++) {
+			result[c][N - 1 - r] = matrix[r][c];
+		}
+	}
+	return result;
 }
 
 /**
  * 特定のパターンに対する盤面のスコアを計算する
  */
 function getPatternScore(board, pattern) {
-    let score = 0;
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-            if (board[r][c] !== 0) {
-                // タイルの値の対数とパターンの重みを乗算する
-                score += getLog2(board[r][c]) * pattern[r][c];
-            }
-        }
-    }
-    return score;
+	let score = 0;
+	for (let r = 0; r < size; r++) {
+		for (let c = 0; c < size; c++) {
+			if (board[r][c] !== 0) {
+				// タイルの値の対数とパターンの重みを乗算する
+				score += getLog2(board[r][c]) * pattern[r][c];
+			}
+		}
+	}
+	return score;
 }
 
 /**
@@ -311,17 +311,17 @@ function getPatternScore(board, pattern) {
  * 4つの回転をすべて試し、最もスコアが高いものをその盤面の評価値とする。
  */
 function evaluatePattern(currentBoard) {
-    let bestScore = 0;
-    let currentPattern = SNAKE_PATTERN_WEIGHTS;
+	let bestScore = 0;
+	let currentPattern = SNAKE_PATTERN_WEIGHTS;
 
-    // 4つの回転方向をすべて試す
-    for (let i = 0; i < 4; i++) {
-        bestScore = Math.max(bestScore, getPatternScore(currentBoard, currentPattern));
-        currentPattern = rotateMatrix(currentPattern);
-    }
+	// 4つの回転方向をすべて試す
+	for (let i = 0; i < 4; i++) {
+		bestScore = Math.max(bestScore, getPatternScore(currentBoard, currentPattern));
+		currentPattern = rotateMatrix(currentPattern);
+	}
 
-    // パターンスコアに加えて、空きマスボーナスも加算する (重要)
-    const emptyCells = getEmptyCells(currentBoard).length;
-    // 既存のヒューリスティックの重みを流用
-    return bestScore + (Math.log2(emptyCells + 1) * HEURISTIC_WEIGHTS.emptyCells);
+	// パターンスコアに加えて、空きマスボーナスも加算する (重要)
+	const emptyCells = getEmptyCells(currentBoard).length;
+	// 既存のヒューリスティックの重みを流用
+	return bestScore + Math.log2(emptyCells + 1) * HEURISTIC_WEIGHTS.emptyCells;
 }
