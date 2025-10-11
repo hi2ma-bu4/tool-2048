@@ -10,12 +10,14 @@ body {
 	color: #776e65;
 	font-family: 'Helvetica Neue', Arial, sans-serif;
 	margin: 0;
-	padding: 20px;
+	padding: 0;
 	text-align: center;
 }
 
 h1 {
 	font-size: 40px;
+	margin-bottom: 15px;
+	margin-top: 0;
 }
 
 .header {

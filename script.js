@@ -7,20 +7,20 @@ document.addEventListener("DOMContentLoaded", () => {
 	const resetBtn = document.getElementById("reset-btn");
 	const searchDepthInput = document.getElementById("search-depth-input");
 	const realtimeCheckbox = document.getElementById("realtime-checkbox");
-    const autoAddTileCheckbox = document.getElementById("auto-add-tile-checkbox");
-    const mergeLimitInput = document.getElementById("merge-limit-input");
+	const autoAddTileCheckbox = document.getElementById("auto-add-tile-checkbox");
+	const mergeLimitInput = document.getElementById("merge-limit-input");
 	const recUp = document.getElementById("rec-up");
 	const recDown = document.getElementById("rec-down");
 	const recLeft = document.getElementById("rec-left");
 	const recRight = document.getElementById("rec-right");
 	const aiMessage = document.getElementById("ai-message");
-    const aiAutoPlayBtn = document.getElementById("ai-auto-play-btn");
-    const aiIntervalInput = document.getElementById("ai-interval-input");
+	const aiAutoPlayBtn = document.getElementById("ai-auto-play-btn");
+	const aiIntervalInput = document.getElementById("ai-interval-input");
 
 	const size = 4;
 	let score = 0;
-    let isAIAutoPlaying = false;
-    let autoPlayIntervalId = null;
+	let isAIAutoPlaying = false;
+	let autoPlayIntervalId = null;
 
 	// =========================================================================
 	// AIの設定
@@ -134,11 +134,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	searchDepthInput.addEventListener("change", () => {
 		let depth = parseInt(searchDepthInput.value);
-		if (depth >= 1 && depth <= 6) {
+		if (depth >= 1 && depth <= 10) {
 			SEARCH_DEPTH = depth;
 			if (isRealtimeCalculation()) runAI();
 		} else {
-			alert("探索深度は1から6の間で設定してください。");
+			alert("探索深度は1から10の間で設定してください。");
 			searchDepthInput.value = SEARCH_DEPTH;
 		}
 	});
@@ -161,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	function operateRow(row) {
 		let newRow = row.filter((val) => val);
 		let newScore = 0;
-        const mergeLimit = parseInt(mergeLimitInput.value, 10) || Infinity;
+		const mergeLimit = parseInt(mergeLimitInput.value, 10) || Infinity;
 
 		for (let i = 0; i < newRow.length - 1; i++) {
 			if (newRow[i] === newRow[i + 1] && newRow[i] < mergeLimit) {
@@ -220,11 +220,11 @@ document.addEventListener("DOMContentLoaded", () => {
 		calculateBtn.disabled = true;
 
 		// UIのフリーズを防ぐため、計算を少し遅延させて実行
-		setTimeout(() => {
+		requestAnimationFrame(() => {
 			const moveScores = findBestMoveScores();
 			displayRecommendations(moveScores);
 			calculateBtn.disabled = false;
-		}, 50);
+		});
 	}
 
 	/**
@@ -241,31 +241,31 @@ document.addEventListener("DOMContentLoaded", () => {
 			item.classList.remove("highlight-best", "highlight-worst");
 		});
 
-        const validMoves = Object.entries(scores).filter(([,score]) => score > -Infinity);
+		const validMoves = Object.entries(scores).filter(([, score]) => score > -Infinity);
 
 		if (validMoves.length > 0) {
-            const minScore = Math.min(...validMoves.map(([,score]) => score));
-            const normalizedScores = Object.fromEntries(
-                validMoves.map(([move, score]) => [move, score - minScore + 1]) // 最小スコアが1になるように正規化
-            );
+			const minScore = Math.min(...validMoves.map(([, score]) => score));
+			const normalizedScores = Object.fromEntries(
+				validMoves.map(([move, score]) => [move, score - minScore + 1]) // 最小スコアが1になるように正規化
+			);
 
-            const totalScore = Object.values(normalizedScores).reduce((sum, s) => sum + s, 0);
+			const totalScore = Object.values(normalizedScores).reduce((sum, s) => sum + s, 0);
 
 			const percentages = { up: 0, down: 0, left: 0, right: 0 };
-            for(const [move, score] of Object.entries(normalizedScores)) {
-                percentages[move] = Math.round((score / totalScore) * 100);
-            }
+			for (const [move, score] of Object.entries(normalizedScores)) {
+				percentages[move] = Math.round((score / totalScore) * 100);
+			}
 
 			recUp.textContent = scores.up > -Infinity ? `${percentages.up}%` : "-%";
 			recDown.textContent = scores.down > -Infinity ? `${percentages.down}%` : "-%";
 			recLeft.textContent = scores.left > -Infinity ? `${percentages.left}%` : "-%";
 			recRight.textContent = scores.right > -Infinity ? `${percentages.right}%` : "-%";
 
-            const bestMove = Object.keys(normalizedScores).reduce((a, b) => normalizedScores[a] > normalizedScores[b] ? a : b);
+			const bestMove = Object.keys(normalizedScores).reduce((a, b) => (normalizedScores[a] > normalizedScores[b] ? a : b));
 			recommendationItems[bestMove].classList.add("highlight-best");
 
 			if (validMoves.length > 1) {
-                const worstMove = Object.keys(normalizedScores).reduce((a, b) => normalizedScores[a] < normalizedScores[b] ? a : b);
+				const worstMove = Object.keys(normalizedScores).reduce((a, b) => (normalizedScores[a] < normalizedScores[b] ? a : b));
 				if (bestMove !== worstMove) {
 					recommendationItems[worstMove].classList.add("highlight-worst");
 				}
@@ -509,9 +509,9 @@ document.addEventListener("DOMContentLoaded", () => {
 		if (result.moved) {
 			board = result.board;
 			updateScore(score + result.score);
-            if(autoAddTileCheckbox.checked){
-			    addRandomTile();
-            }
+			if (autoAddTileCheckbox.checked) {
+				addRandomTile();
+			}
 			renderBoard();
 			if (isRealtimeCalculation()) {
 				runAI();
@@ -570,42 +570,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	aiAutoPlayBtn.addEventListener("click", toggleAIAutoPlay);
 
-    function toggleAIAutoPlay() {
-        isAIAutoPlaying = !isAIAutoPlaying;
-        if (isAIAutoPlaying) {
-            aiAutoPlayBtn.textContent = "AI自動操作を停止";
-            aiAutoPlayBtn.classList.add("playing");
-            startAIAutoPlay();
-        } else {
-            aiAutoPlayBtn.textContent = "AI自動操作を開始";
-            aiAutoPlayBtn.classList.remove("playing");
-            stopAIAutoPlay();
-        }
-    }
+	function toggleAIAutoPlay() {
+		isAIAutoPlaying = !isAIAutoPlaying;
+		if (isAIAutoPlaying) {
+			aiAutoPlayBtn.textContent = "AI自動操作を停止";
+			aiAutoPlayBtn.classList.add("playing");
+			startAIAutoPlay();
+		} else {
+			aiAutoPlayBtn.textContent = "AI自動操作を開始";
+			aiAutoPlayBtn.classList.remove("playing");
+			stopAIAutoPlay();
+		}
+	}
 
-    function startAIAutoPlay() {
-        const interval = parseInt(aiIntervalInput.value, 10) || 500;
-        autoPlayIntervalId = setInterval(() => {
-            const moveScores = findBestMoveScores();
-            const validMoves = Object.entries(moveScores).filter(([,score]) => score > -Infinity);
+	function startAIAutoPlay() {
+		const interval = parseInt(aiIntervalInput.value, 10) || 500;
+		let isCalculating = false;
+		autoPlayIntervalId = setInterval(() => {
+			if (isCalculating) {
+				return;
+			}
 
-            if (validMoves.length > 0) {
-                const bestMove = validMoves.reduce((a, b) => (a[1] > b[1] ? a : b))[0];
-                moveBoard(bestMove);
-            } else {
-                // ゲームオーバー
-                stopAIAutoPlay();
-                aiMessage.textContent = "ゲームオーバー！AIは停止しました。";
-            }
-        }, interval);
-    }
+			isCalculating = true;
+			const moveScores = findBestMoveScores();
+			const validMoves = Object.entries(moveScores).filter(([, score]) => score > -Infinity);
 
-    function stopAIAutoPlay() {
-        clearInterval(autoPlayIntervalId);
-        isAIAutoPlaying = false;
-        aiAutoPlayBtn.textContent = "AI自動操作を開始";
-        aiAutoPlayBtn.classList.remove("playing");
-    }
+			if (validMoves.length > 0) {
+				const bestMove = validMoves.reduce((a, b) => (a[1] > b[1] ? a : b))[0];
+				moveBoard(bestMove);
+			} else {
+				// ゲームオーバー
+				stopAIAutoPlay();
+				aiMessage.textContent = "ゲームオーバー！AIは停止しました。";
+			}
+
+			isCalculating = false;
+		}, interval);
+	}
+
+	function stopAIAutoPlay() {
+		clearInterval(autoPlayIntervalId);
+		isAIAutoPlaying = false;
+		aiAutoPlayBtn.textContent = "AI自動操作を開始";
+		aiAutoPlayBtn.classList.remove("playing");
+	}
 
 	// --- 初期化実行 ---
 	initializeBoard();
