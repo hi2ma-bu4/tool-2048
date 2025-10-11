@@ -97,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	function simulateMove(currentBoard, direction) {
-		let tempBoard = currentBoard.map(row => [...row]);
+		let tempBoard = currentBoard.map((row) => [...row]);
 		let moveScore = 0;
 		let boardChanged = false;
 
@@ -217,13 +217,13 @@ document.addEventListener("DOMContentLoaded", () => {
 			let totalScore = 0;
 			// 2が90%の確率で出現
 			for (const cell of emptyCells) {
-				const newBoard = currentBoard.map(row => [...row]);
+				const newBoard = currentBoard.map((row) => [...row]);
 				newBoard[cell.r][cell.c] = 2;
 				totalScore += 0.9 * expectimax(newBoard, depth - 1, true, memo);
 			}
 			// 4が10%の確率で出現
 			for (const cell of emptyCells) {
-				const newBoard = currentBoard.map(row => [...row]);
+				const newBoard = currentBoard.map((row) => [...row]);
 				newBoard[cell.r][cell.c] = 4;
 				totalScore += 0.1 * expectimax(newBoard, depth - 1, true, memo);
 			}
