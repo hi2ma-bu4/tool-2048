@@ -122,7 +122,6 @@ button:hover {
 	font-weight: bold;
 	height: 100px;
 	justify-content: center;
-	transition: background-color .3s, color .3s;
 	user-select: none;
 	width: 100px;
 }

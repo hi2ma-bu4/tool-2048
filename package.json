@@ -1,5 +1,5 @@
 {
-  "name": "2048-best-move-calculator",
+  "name": "tool-2048",
   "version": "1.0.0",
   "description": "A tool to calculate the best move in the game 2048.",
   "main": "dist/main.js",
@@ -9,7 +9,11 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
-    "esbuild": "^0.19.5",
+    "esbuild": "^0.25.10",
     "typescript": "^5.2.2"
+  },
+  "volta": {
+    "node": "22.20.0",
+    "npm": "11.6.2"
   }
 }

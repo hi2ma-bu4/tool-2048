@@ -1,13 +1,19 @@
 {
   "compilerOptions": {
-    "target": "es2020",
+    "target": "es2024",
     "module": "esnext",
-    "lib": ["dom", "es2020", "webworker"],
+    "lib": [
+      "dom",
+      "es2024",
+      "webworker"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node"
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }
