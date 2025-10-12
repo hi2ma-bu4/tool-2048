@@ -1,4 +1,4 @@
-import { Board, HeuristicWeights } from "../types";
+import type { Board, HeuristicWeights } from "../types";
 import { initializeBoard } from "./game";
 
 export const state = {

@@ -65,7 +65,13 @@ fn rotate_matrix(matrix: &[[f64; SIZE]; SIZE]) -> [[f64; SIZE]; SIZE] {
 }
 
 #[wasm_bindgen]
-pub fn evaluate_board(board_js: &[f64], smoothness_weight: f64, monotonicity_weight: f64, empty_cells_weight: f64, max_tile_weight: f64) -> f64 {
+pub fn evaluate_board(
+    board_js: &[f64],
+    smoothness_weight: f64,
+    monotonicity_weight: f64,
+    empty_cells_weight: f64,
+    max_tile_weight: f64,
+) -> f64 {
     let board = board_js_to_rust(board_js);
 
     let empty_cells = get_empty_cells_count(board_js);
@@ -73,7 +79,11 @@ pub fn evaluate_board(board_js: &[f64], smoothness_weight: f64, monotonicity_wei
 
     let smoothness = calculate_smoothness(&board);
     let monotonicity = calculate_monotonicity(&board);
-    let max_tile_bonus = if is_max_tile_in_corner(&board, max_tile_value) { max_tile_value } else { 0.0 };
+    let max_tile_bonus = if is_max_tile_in_corner(&board, max_tile_value) {
+        max_tile_value
+    } else {
+        0.0
+    };
 
     smoothness * smoothness_weight
         + monotonicity * monotonicity_weight
@@ -118,7 +128,9 @@ fn calculate_monotonicity(board: &[[f64; SIZE]; SIZE]) -> f64 {
     for r in 0..SIZE {
         let row = &board[r];
         let non_zero_logs: Vec<f64> = row.iter().map(|&v| log2(v)).filter(|&v| v > 0.0).collect();
-        if non_zero_logs.len() < 2 { continue; }
+        if non_zero_logs.len() < 2 {
+            continue;
+        }
         for i in 0..(non_zero_logs.len() - 1) {
             if non_zero_logs[i] > non_zero_logs[i + 1] {
                 totals[2] += non_zero_logs[i + 1] - non_zero_logs[i];
@@ -131,8 +143,14 @@ fn calculate_monotonicity(board: &[[f64; SIZE]; SIZE]) -> f64 {
     // Up/Down monotonicity
     for c in 0..SIZE {
         let column: Vec<f64> = (0..SIZE).map(|r| board[r][c]).collect();
-        let non_zero_logs: Vec<f64> = column.iter().map(|&v| log2(v)).filter(|&v| v > 0.0).collect();
-        if non_zero_logs.len() < 2 { continue; }
+        let non_zero_logs: Vec<f64> = column
+            .iter()
+            .map(|&v| log2(v))
+            .filter(|&v| v > 0.0)
+            .collect();
+        if non_zero_logs.len() < 2 {
+            continue;
+        }
         for i in 0..(non_zero_logs.len() - 1) {
             if non_zero_logs[i] > non_zero_logs[i + 1] {
                 totals[0] += non_zero_logs[i + 1] - non_zero_logs[i];

@@ -1,4 +1,4 @@
-import { Board, Direction } from "../types";
+import type { Board, Direction } from "../types";
 
 const SIZE = 4;
 

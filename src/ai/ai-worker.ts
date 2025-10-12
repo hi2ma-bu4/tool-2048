@@ -1,6 +1,6 @@
 import init, { evaluate_board, evaluate_pattern, evaluate_snake_pattern } from "../../pkg/wasm_lib.js";
 import { getEmptyCells, simulateMove } from "../game/game";
-import { Board, Direction, HeuristicWeights, WorkerMessage, WorkerResponse } from "../types";
+import type { Board, Direction, HeuristicWeights, WorkerMessage, WorkerResponse } from "../types";
 
 // --- WASMの初期化 ---
 // wasmモジュールは非同期で初期化する必要がある

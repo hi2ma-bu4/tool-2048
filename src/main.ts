@@ -1,6 +1,6 @@
 import { addRandomTile, simulateMove } from "./game/game";
 import { resetState, state } from "./game/state";
-import { Board, Direction, WorkerMessage, WorkerResponse } from "./types";
+import type { Board, Direction, WorkerMessage, WorkerResponse } from "./types";
 import { displayRecommendations, elements, initializeGrid, renderBoard, resetRecommendations, updateScore } from "./ui/dom";
 
 const NUM_WORKERS = 4;
