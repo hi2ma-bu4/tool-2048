@@ -37,7 +37,7 @@ function initializeWorkers() {
 	// The path should be relative to the final HTML file location
 	const workerUrl = "dist/ai-worker.js";
 	for (let i = 0; i < NUM_WORKERS; i++) {
-		const worker = new Worker(workerUrl);
+		const worker = new Worker(workerUrl, { type: "module" });
 		worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
 			const { move, score } = e.data;
 			moveScores[move] = score;

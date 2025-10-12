@@ -1,20 +1,37 @@
+import init, { evaluate_board, evaluate_pattern, evaluate_snake_pattern } from "../../pkg/wasm_lib.js";
 import { getEmptyCells, simulateMove } from "../game/game";
 import { Board, Direction, HeuristicWeights, WorkerMessage, WorkerResponse } from "../types";
-import { evaluateBoard, evaluatePattern, evaluateSnakePattern } from "./evaluation";
+
+// --- WASMの初期化 ---
+// wasmモジュールは非同期で初期化する必要がある
+const wasmReady = init();
 
 type EvaluationFunction = (board: Board, weights: HeuristicWeights) => number;
 type Memo = Map<string, number>;
 
+// WASM関数を呼び出す評価関数
 const evaluationFunctions: { [key: string]: EvaluationFunction } = {
-	heuristic: evaluateBoard,
-	pattern: evaluatePattern,
-	snake: (board: Board) => evaluateSnakePattern(board), // snake doesn't use weights
+	heuristic: (board, weights) => {
+		const flatBoard = new Float64Array(board.flat());
+		return evaluate_board(flatBoard, weights.smoothness, weights.monotonicity, weights.emptyCells, weights.maxTile);
+	},
+	pattern: (board, weights) => {
+		const flatBoard = new Float64Array(board.flat());
+		return evaluate_pattern(flatBoard, weights.emptyCells);
+	},
+	snake: (board) => {
+		const flatBoard = new Float64Array(board.flat());
+		return evaluate_snake_pattern(flatBoard);
+	},
 };
 
 /**
  * メインスレッドからのメッセージを受信
  */
-self.onmessage = (e: MessageEvent<WorkerMessage>) => {
+self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
+	// WASMモジュールの準備ができるまで待つ
+	await wasmReady;
+
 	const { algorithm, move, board, searchDepth, heuristicWeights, mergeLimit } = e.data;
 	const memo: Memo = new Map();
 	const evaluationFunction = evaluationFunctions[algorithm];
