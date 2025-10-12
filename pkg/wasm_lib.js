@@ -19,40 +19,14 @@ function passArrayF64ToWasm0(arg, malloc) {
 }
 /**
  * @param {Float64Array} board_js
- * @param {number} empty_cells_weight
+ * @param {number} search_depth
  * @returns {number}
  */
-export function evaluate_pattern(board_js, empty_cells_weight) {
+export function find_best_move(board_js, search_depth) {
     const ptr0 = passArrayF64ToWasm0(board_js, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.evaluate_pattern(ptr0, len0, empty_cells_weight);
-    return ret;
-}
-
-/**
- * @param {Float64Array} board_js
- * @param {number} smoothness_weight
- * @param {number} monotonicity_weight
- * @param {number} empty_cells_weight
- * @param {number} max_tile_weight
- * @returns {number}
- */
-export function evaluate_board(board_js, smoothness_weight, monotonicity_weight, empty_cells_weight, max_tile_weight) {
-    const ptr0 = passArrayF64ToWasm0(board_js, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.evaluate_board(ptr0, len0, smoothness_weight, monotonicity_weight, empty_cells_weight, max_tile_weight);
-    return ret;
-}
-
-/**
- * @param {Float64Array} board_js
- * @returns {number}
- */
-export function evaluate_snake_pattern(board_js) {
-    const ptr0 = passArrayF64ToWasm0(board_js, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.evaluate_snake_pattern(ptr0, len0);
-    return ret;
+    const ret = wasm.find_best_move(ptr0, len0, search_depth);
+    return ret >>> 0;
 }
 
 const EXPECTED_RESPONSE_TYPES = new Set(['basic', 'cors', 'default']);

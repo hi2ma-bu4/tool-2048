@@ -14,23 +14,11 @@ function passArrayF64ToWasm0(arg, malloc) {
   WASM_VECTOR_LEN = arg.length;
   return ptr;
 }
-function evaluate_pattern(board_js, empty_cells_weight) {
+function find_best_move(board_js, search_depth) {
   const ptr0 = passArrayF64ToWasm0(board_js, wasm.__wbindgen_malloc);
   const len0 = WASM_VECTOR_LEN;
-  const ret = wasm.evaluate_pattern(ptr0, len0, empty_cells_weight);
-  return ret;
-}
-function evaluate_board(board_js, smoothness_weight, monotonicity_weight, empty_cells_weight, max_tile_weight) {
-  const ptr0 = passArrayF64ToWasm0(board_js, wasm.__wbindgen_malloc);
-  const len0 = WASM_VECTOR_LEN;
-  const ret = wasm.evaluate_board(ptr0, len0, smoothness_weight, monotonicity_weight, empty_cells_weight, max_tile_weight);
-  return ret;
-}
-function evaluate_snake_pattern(board_js) {
-  const ptr0 = passArrayF64ToWasm0(board_js, wasm.__wbindgen_malloc);
-  const len0 = WASM_VECTOR_LEN;
-  const ret = wasm.evaluate_snake_pattern(ptr0, len0);
-  return ret;
+  const ret = wasm.find_best_move(ptr0, len0, search_depth);
+  return ret >>> 0;
 }
 var EXPECTED_RESPONSE_TYPES = /* @__PURE__ */ new Set(["basic", "cors", "default"]);
 async function __wbg_load(module, imports) {
@@ -104,125 +92,15 @@ async function __wbg_init(module_or_path) {
 }
 var wasm_lib_default = __wbg_init;
 
-// src/game/game.ts
-var SIZE = 4;
-function operateRow(row, mergeLimit) {
-  const newRow = row.filter((val) => val !== 0);
-  let score = 0;
-  for (let i = 0; i < newRow.length - 1; i++) {
-    if (newRow[i] === newRow[i + 1] && newRow[i] < mergeLimit) {
-      newRow[i] *= 2;
-      score += newRow[i];
-      newRow.splice(i + 1, 1);
-    }
-  }
-  while (newRow.length < SIZE) {
-    newRow.push(0);
-  }
-  return { newRow, score };
-}
-function transpose(matrix) {
-  return matrix[0].map((_, colIndex) => matrix.map((row) => row[colIndex]));
-}
-function simulateMove(currentBoard, direction, mergeLimit) {
-  let tempBoard = currentBoard.map((row) => [...row]);
-  let moveScore = 0;
-  const originalBoardStr = JSON.stringify(tempBoard);
-  if (direction === "up" || direction === "down") {
-    tempBoard = transpose(tempBoard);
-  }
-  for (let i = 0; i < SIZE; i++) {
-    let row = tempBoard[i];
-    if (direction === "right" || direction === "down") {
-      row.reverse();
-    }
-    const result = operateRow(row, mergeLimit);
-    if (direction === "right" || direction === "down") {
-      result.newRow.reverse();
-    }
-    tempBoard[i] = result.newRow;
-    moveScore += result.score;
-  }
-  if (direction === "up" || direction === "down") {
-    tempBoard = transpose(tempBoard);
-  }
-  const boardChanged = JSON.stringify(tempBoard) !== originalBoardStr;
-  return { board: tempBoard, score: moveScore, moved: boardChanged };
-}
-function getEmptyCells(board) {
-  const cells = [];
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      if (board[r][c] === 0) {
-        cells.push({ r, c });
-      }
-    }
-  }
-  return cells;
-}
-
 // src/ai/ai-worker.ts
 var wasmReady = wasm_lib_default();
-var evaluationFunctions = {
-  heuristic: (board, weights) => {
-    const flatBoard = new Float64Array(board.flat());
-    return evaluate_board(flatBoard, weights.smoothness, weights.monotonicity, weights.emptyCells, weights.maxTile);
-  },
-  pattern: (board, weights) => {
-    const flatBoard = new Float64Array(board.flat());
-    return evaluate_pattern(flatBoard, weights.emptyCells);
-  },
-  snake: (board) => {
-    const flatBoard = new Float64Array(board.flat());
-    return evaluate_snake_pattern(flatBoard);
-  }
-};
+var directionMap = ["up", "down", "left", "right"];
 self.onmessage = async (e) => {
   await wasmReady;
-  const { algorithm, move, board, searchDepth, heuristicWeights, mergeLimit } = e.data;
-  const memo = /* @__PURE__ */ new Map();
-  const evaluationFunction = evaluationFunctions[algorithm];
-  if (!evaluationFunction) {
-    throw new Error(`Unknown algorithm: ${algorithm}`);
-  }
-  const score = expectimax(board, searchDepth - 1, false, memo, evaluationFunction, heuristicWeights, mergeLimit);
+  const { move, board, searchDepth } = e.data;
+  const flatBoard = new Float64Array(board.flat());
+  const bestMoveIndex = find_best_move(flatBoard, searchDepth);
+  const bestMoveDirection = directionMap[bestMoveIndex];
+  const score = move.direction === bestMoveDirection ? 1 : 0;
   self.postMessage({ move, score });
 };
-function expectimax(currentBoard, depth, isPlayerTurn, memo, evaluationFunction, weights, mergeLimit) {
-  const boardKey = JSON.stringify(currentBoard);
-  if (memo.has(boardKey)) {
-    return memo.get(boardKey);
-  }
-  if (depth === 0) {
-    return evaluationFunction(currentBoard, weights);
-  }
-  let resultScore;
-  if (isPlayerTurn) {
-    let maxScore = -Infinity;
-    const moves = ["up", "down", "left", "right"];
-    for (const move of moves) {
-      const simResult = simulateMove(currentBoard, move, mergeLimit);
-      if (simResult.moved) {
-        maxScore = Math.max(maxScore, expectimax(simResult.board, depth - 1, false, memo, evaluationFunction, weights, mergeLimit));
-      }
-    }
-    resultScore = maxScore === -Infinity ? 0 : maxScore;
-  } else {
-    const emptyCells = getEmptyCells(currentBoard);
-    if (emptyCells.length === 0) {
-      return expectimax(currentBoard, depth - 1, true, memo, evaluationFunction, weights, mergeLimit);
-    }
-    let totalScore = 0;
-    for (const cell of emptyCells) {
-      const boardWith2 = currentBoard.map((row) => [...row]);
-      boardWith2[cell.r][cell.c] = 2;
-      totalScore += 0.9 * expectimax(boardWith2, depth - 1, true, memo, evaluationFunction, weights, mergeLimit);
-      const boardWith4 = currentBoard.map((row) => [...row]);
-      boardWith4[cell.r][cell.c] = 4;
-      totalScore += 0.1 * expectimax(boardWith4, depth - 1, true, memo, evaluationFunction, weights, mergeLimit);
-    }
-    resultScore = totalScore / emptyCells.length;
-  }
-  memo.set(boardKey, resultScore);
-  return resultScore;
-}

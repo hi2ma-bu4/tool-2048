@@ -86,7 +86,10 @@
     }
   };
   function resetState() {
-    state.board = initializeBoard();
+    let board = initializeBoard();
+    board = addRandomTile(board);
+    board = addRandomTile(board);
+    state.board = board;
     state.score = 0;
   }
   if (typeof window !== "undefined") {

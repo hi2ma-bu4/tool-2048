@@ -1,16 +1,12 @@
 /* tslint:disable */
 /* eslint-disable */
-export function evaluate_pattern(board_js: Float64Array, empty_cells_weight: number): number;
-export function evaluate_board(board_js: Float64Array, smoothness_weight: number, monotonicity_weight: number, empty_cells_weight: number, max_tile_weight: number): number;
-export function evaluate_snake_pattern(board_js: Float64Array): number;
+export function find_best_move(board_js: Float64Array, search_depth: number): number;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly evaluate_pattern: (a: number, b: number, c: number) => number;
-  readonly evaluate_board: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly evaluate_snake_pattern: (a: number, b: number) => number;
+  readonly find_best_move: (a: number, b: number, c: number) => number;
   readonly __wbindgen_export_0: WebAssembly.Table;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_start: () => void;

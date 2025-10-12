@@ -16,8 +16,13 @@ export const state = {
 	} as HeuristicWeights,
 };
 
+import { addRandomTile } from "./game";
+
 export function resetState() {
-	state.board = initializeBoard();
+	let board = initializeBoard();
+	board = addRandomTile(board);
+	board = addRandomTile(board);
+	state.board = board;
 	state.score = 0;
 	// Don't reset other state properties like isAIAutoPlaying
 }
