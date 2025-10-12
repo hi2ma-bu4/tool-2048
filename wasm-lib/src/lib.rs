@@ -1,5 +1,7 @@
 use wasm_bindgen::prelude::*;
 
+pub mod bitboard;
+
 const SIZE: usize = 4;
 
 // JavaScriptの `Math.log2` は f64 を受け取るので、Rustでも f64 で計算
@@ -52,6 +54,34 @@ fn get_pattern_score(board: &[f64], pattern: &[[f64; SIZE]; SIZE]) -> f64 {
         }
     }
     score
+}
+
+#[wasm_bindgen]
+pub fn find_best_move_bitboard(js_board: &[f64], depth: u32) -> String {
+    // テーブルの初期化（一度だけ実行される）
+    bitboard::init_tables();
+
+    // JavaScriptのボード (f64配列) をビットボード (u64) に変換
+    let mut board: u64 = 0;
+    for r in 0..SIZE {
+        for c in 0..SIZE {
+            let tile_value = js_board[r * SIZE + c];
+            if tile_value > 0.0 {
+                let power = tile_value.log2() as u64;
+                board |= power << ((r * SIZE + c) * 4);
+            }
+        }
+    }
+
+    let (best_move, _) = bitboard::expectimax_search(board, depth);
+
+    match best_move {
+        0 => "up".to_string(),
+        1 => "down".to_string(),
+        2 => "left".to_string(),
+        3 => "right".to_string(),
+        _ => "".to_string(), // Should not happen
+    }
 }
 
 fn rotate_matrix(matrix: &[[f64; SIZE]; SIZE]) -> [[f64; SIZE]; SIZE] {

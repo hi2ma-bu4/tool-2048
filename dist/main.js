@@ -227,6 +227,9 @@
     for (let i = 0; i < NUM_WORKERS; i++) {
       const worker = new Worker(workerUrl, { type: "module" });
       worker.onmessage = (e) => {
+        if (elements.aiAlgorithmSelect.value === "bitboard") {
+          return;
+        }
         const { move, score } = e.data;
         moveScores[move] = score;
         completedWorkers++;
@@ -363,7 +366,32 @@
     elements.aiMessage.textContent = "AI\u304C\u8A08\u7B97\u4E2D\u3067\u3059...";
     elements.calculateBtn.disabled = true;
     state.isAICalculating = true;
+    const algorithm = elements.aiAlgorithmSelect.value;
     const mergeLimit = parseInt(elements.mergeLimitInput.value, 10) || Infinity;
+    if (algorithm === "bitboard") {
+      const worker = workers[0];
+      const message = {
+        algorithm: "bitboard",
+        move: "up",
+        // この値はワーカー側で無視される
+        board: state.board,
+        searchDepth: state.searchDepth,
+        heuristicWeights: state.heuristicWeights,
+        mergeLimit
+      };
+      const handleBitboardResult = (e) => {
+        const { move: bestMove } = e.data;
+        moveScores = { up: -Infinity, down: -Infinity, left: -Infinity, right: -Infinity };
+        if (bestMove) {
+          moveScores[bestMove] = 1;
+        }
+        finishAICalculation();
+        worker.removeEventListener("message", handleBitboardResult);
+      };
+      worker.addEventListener("message", handleBitboardResult);
+      worker.postMessage(message);
+      return;
+    }
     const moves = ["up", "down", "left", "right"];
     tasks = [];
     for (const move of moves) {
@@ -382,7 +410,7 @@
     tasks.forEach((task, index) => {
       const worker = workers[index % NUM_WORKERS];
       const message = {
-        algorithm: elements.aiAlgorithmSelect.value,
+        algorithm,
         move: task.move,
         board: task.board,
         searchDepth: state.searchDepth,

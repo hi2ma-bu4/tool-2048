@@ -20,6 +20,44 @@ function evaluate_pattern(board_js, empty_cells_weight) {
   const ret = wasm.evaluate_pattern(ptr0, len0, empty_cells_weight);
   return ret;
 }
+var cachedUint8ArrayMemory0 = null;
+function getUint8ArrayMemory0() {
+  if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
+    cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
+  }
+  return cachedUint8ArrayMemory0;
+}
+var cachedTextDecoder = new TextDecoder("utf-8", { ignoreBOM: true, fatal: true });
+cachedTextDecoder.decode();
+var MAX_SAFARI_DECODE_BYTES = 2146435072;
+var numBytesDecoded = 0;
+function decodeText(ptr, len) {
+  numBytesDecoded += len;
+  if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
+    cachedTextDecoder = new TextDecoder("utf-8", { ignoreBOM: true, fatal: true });
+    cachedTextDecoder.decode();
+    numBytesDecoded = len;
+  }
+  return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
+}
+function getStringFromWasm0(ptr, len) {
+  ptr = ptr >>> 0;
+  return decodeText(ptr, len);
+}
+function find_best_move_bitboard(js_board, depth) {
+  let deferred2_0;
+  let deferred2_1;
+  try {
+    const ptr0 = passArrayF64ToWasm0(js_board, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.find_best_move_bitboard(ptr0, len0, depth);
+    deferred2_0 = ret[0];
+    deferred2_1 = ret[1];
+    return getStringFromWasm0(ret[0], ret[1]);
+  } finally {
+    wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+  }
+}
 function evaluate_board(board_js, smoothness_weight, monotonicity_weight, empty_cells_weight, max_tile_weight) {
   const ptr0 = passArrayF64ToWasm0(board_js, wasm.__wbindgen_malloc);
   const len0 = WASM_VECTOR_LEN;
@@ -79,6 +117,7 @@ function __wbg_finalize_init(instance, module) {
   wasm = instance.exports;
   __wbg_init.__wbindgen_wasm_module = module;
   cachedFloat64ArrayMemory0 = null;
+  cachedUint8ArrayMemory0 = null;
   wasm.__wbindgen_start();
   return wasm;
 }
@@ -180,6 +219,12 @@ var evaluationFunctions = {
 self.onmessage = async (e) => {
   await wasmReady;
   const { algorithm, move, board, searchDepth, heuristicWeights, mergeLimit } = e.data;
+  if (algorithm === "bitboard") {
+    const flatBoard = new Float64Array(board.flat());
+    const bestMove = find_best_move_bitboard(flatBoard, searchDepth);
+    self.postMessage({ move: bestMove, score: 1 });
+    return;
+  }
   const memo = /* @__PURE__ */ new Map();
   const evaluationFunction = evaluationFunctions[algorithm];
   if (!evaluationFunction) {

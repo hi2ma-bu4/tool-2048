@@ -39,6 +39,11 @@ function initializeWorkers() {
 	for (let i = 0; i < NUM_WORKERS; i++) {
 		const worker = new Worker(workerUrl, { type: "module" });
 		worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+			// Bitboard AIの場合は、runAIで設定された専用リスナーが処理するため、汎用ハンドラは何もしない
+			if (elements.aiAlgorithmSelect.value === "bitboard") {
+				return;
+			}
+
 			const { move, score } = e.data;
 			moveScores[move] = score;
 			completedWorkers++;
@@ -196,7 +201,39 @@ function runAI() {
 	elements.calculateBtn.disabled = true;
 	state.isAICalculating = true;
 
+	const algorithm = elements.aiAlgorithmSelect.value;
 	const mergeLimit = parseInt(elements.mergeLimitInput.value, 10) || Infinity;
+
+	// Bitboard AI用の特別処理
+	if (algorithm === "bitboard") {
+		const worker = workers[0];
+		const message: WorkerMessage = {
+			algorithm: "bitboard",
+			move: "up", // この値はワーカー側で無視される
+			board: state.board,
+			searchDepth: state.searchDepth,
+			heuristicWeights: state.heuristicWeights,
+			mergeLimit: mergeLimit,
+		};
+
+		// 1回限りのリスナーを設定して、最善手を受け取る
+		const handleBitboardResult = (e: MessageEvent<WorkerResponse>) => {
+			const { move: bestMove } = e.data;
+			moveScores = { up: -Infinity, down: -Infinity, left: -Infinity, right: -Infinity };
+			if (bestMove) {
+				moveScores[bestMove] = 1; // 最善手に最高のスコアを割り当てる
+			}
+			finishAICalculation();
+			worker.removeEventListener("message", handleBitboardResult); // リスナーを削除
+		};
+
+		// 通常のonmessageは複数回発火する可能性があるため、1回限りのリスナーを追加
+		worker.addEventListener("message", handleBitboardResult);
+		worker.postMessage(message);
+		return; // 通常のAIロジックをスキップ
+	}
+
+	// --- 既存のAIロジック ---
 	const moves: Direction[] = ["up", "down", "left", "right"];
 	tasks = [];
 
@@ -218,7 +255,7 @@ function runAI() {
 	tasks.forEach((task, index) => {
 		const worker = workers[index % NUM_WORKERS];
 		const message: WorkerMessage = {
-			algorithm: elements.aiAlgorithmSelect.value,
+			algorithm: algorithm,
 			move: task.move,
 			board: task.board,
 			searchDepth: state.searchDepth,

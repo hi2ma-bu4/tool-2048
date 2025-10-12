@@ -1,4 +1,4 @@
-import init, { evaluate_board, evaluate_pattern, evaluate_snake_pattern } from "../../pkg/wasm_lib.js";
+import init, { evaluate_board, evaluate_pattern, evaluate_snake_pattern, find_best_move_bitboard } from "../../pkg/wasm_lib.js";
 import { getEmptyCells, simulateMove } from "../game/game";
 import type { Board, Direction, HeuristicWeights, WorkerMessage, WorkerResponse } from "../types";
 
@@ -33,6 +33,17 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
 	await wasmReady;
 
 	const { algorithm, move, board, searchDepth, heuristicWeights, mergeLimit } = e.data;
+
+	// Bitboard AIが選択された場合の新しいロジック
+	if (algorithm === "bitboard") {
+		const flatBoard = new Float64Array(board.flat());
+		// Rust (WASM) に実装されたExpectimaxを直接呼び出す
+		const bestMove = find_best_move_bitboard(flatBoard, searchDepth) as Direction;
+		// `move`は、このワーカーが担当する方向。計算結果の`bestMove`を`move`として返す
+		self.postMessage({ move: bestMove, score: 1 } as WorkerResponse);
+		return;
+	}
+
 	const memo: Memo = new Map();
 	const evaluationFunction = evaluationFunctions[algorithm];
 
