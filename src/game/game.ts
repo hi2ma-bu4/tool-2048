@@ -99,7 +99,8 @@ export function addRandomTile(board: Board): Board {
 	if (emptyCells.length > 0) {
 		const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
 		const newBoard = board.map((row) => [...row]);
-		newBoard[r][c] = 2; // 常に2を追加
+		// 90%の確率で2を、10%の確率で4を追加
+		newBoard[r][c] = Math.random() < 0.9 ? 2 : 4;
 		return newBoard;
 	}
 	return board;

@@ -61,7 +61,7 @@
     if (emptyCells.length > 0) {
       const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
       const newBoard = board.map((row) => [...row]);
-      newBoard[r][c] = 2;
+      newBoard[r][c] = Math.random() < 0.9 ? 2 : 4;
       return newBoard;
     }
     return board;
