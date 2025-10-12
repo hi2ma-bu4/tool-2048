@@ -4,7 +4,7 @@
   "description": "A tool to calculate the best move in the game 2048.",
   "main": "dist/main.js",
   "scripts": {
-    "build": "esbuild src/main.ts --bundle --outfile=dist/main.js --platform=browser && esbuild src/ai/ai-worker.ts --bundle --outfile=dist/ai-worker.js --platform=browser",
+    "build": "node build.js",
     "watch": "npm run build -- --watch"
   },
   "devDependencies": {
