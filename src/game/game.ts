@@ -1,39 +1,7 @@
 import type { Board, Direction } from "../types";
+import { wasm } from "../main";
 
 const SIZE = 4;
-
-/**
- * 指定された行（または列）を操作して、タイルを結合しスコアを計算する
- * @param row 操作する行
- * @param mergeLimit 結合上限値
- * @returns 操作後の行とスコア
- */
-export function operateRow(row: number[], mergeLimit: number): { newRow: number[]; score: number } {
-	const newRow = row.filter((val) => val !== 0);
-	let score = 0;
-
-	for (let i = 0; i < newRow.length - 1; i++) {
-		if (newRow[i] === newRow[i + 1] && newRow[i] < mergeLimit) {
-			newRow[i] *= 2;
-			score += newRow[i];
-			newRow.splice(i + 1, 1);
-		}
-	}
-	while (newRow.length < SIZE) {
-		newRow.push(0);
-	}
-
-	return { newRow, score };
-}
-
-/**
- * 行列を転置する
- * @param matrix 転置する行列
- * @returns 転置された行列
- */
-export function transpose(matrix: Board): Board {
-	return matrix[0].map((_, colIndex) => matrix.map((row) => row[colIndex]));
-}
 
 /**
  * 指定された方向に盤面を動かすシミュレーションを行う
@@ -42,34 +10,41 @@ export function transpose(matrix: Board): Board {
  * @param mergeLimit 結合上限値
  * @returns シミュレーション後の盤面、スコア、移動があったかどうか
  */
-export function simulateMove(currentBoard: Board, direction: Direction, mergeLimit: number): { board: Board; score: number; moved: boolean } {
-	let tempBoard = currentBoard.map((row) => [...row]);
-	let moveScore = 0;
-	const originalBoardStr = JSON.stringify(tempBoard);
+export function simulateMove(
+	currentBoard: Board,
+	direction: Direction,
+	mergeLimit: number,
+): { board: Board; score: number; moved: boolean } {
+	const boardIn = new Float64Array(currentBoard.flat());
+	const boardOut = new Float64Array(SIZE * SIZE); // 結果を格納する配列
 
-	if (direction === "up" || direction === "down") {
-		tempBoard = transpose(tempBoard);
-	}
+	const directionMap: { [key in Direction]: number } = {
+		up: 0,
+		right: 1,
+		down: 2,
+		left: 3,
+	};
+	const dir = directionMap[direction];
 
-	for (let i = 0; i < SIZE; i++) {
-		let row = tempBoard[i];
-		if (direction === "right" || direction === "down") {
-			row.reverse();
+	// mergeLimitがInfinityの場合、Rustが扱える最大数に近い値を渡す
+	const safeMergeLimit = !isFinite(mergeLimit) ? Number.MAX_SAFE_INTEGER : mergeLimit;
+
+	try {
+		const encodedResult = wasm.simulate_move(boardIn, boardOut, dir, safeMergeLimit);
+
+		const score = Math.floor(encodedResult / 10);
+		const moved = encodedResult % 10 === 1;
+
+		const newBoard: Board = [];
+		for (let i = 0; i < SIZE; i++) {
+			newBoard.push(Array.from(boardOut.slice(i * SIZE, (i + 1) * SIZE)));
 		}
-		const result = operateRow(row, mergeLimit);
-		if (direction === "right" || direction === "down") {
-			result.newRow.reverse();
-		}
-		tempBoard[i] = result.newRow;
-		moveScore += result.score;
-	}
 
-	if (direction === "up" || direction === "down") {
-		tempBoard = transpose(tempBoard);
+		return { board: newBoard, score, moved };
+	} catch (e) {
+		console.error("WASM 'simulate_move' failed:", e);
+		return { board: currentBoard, score: 0, moved: false };
 	}
-
-	const boardChanged = JSON.stringify(tempBoard) !== originalBoardStr;
-	return { board: tempBoard, score: moveScore, moved: boardChanged };
 }
 
 /**

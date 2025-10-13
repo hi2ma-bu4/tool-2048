@@ -10,6 +10,7 @@ const buildOptions = [
 		bundle: true,
 		outfile: "dist/main.js",
 		platform: "browser",
+		format: "esm",
 	},
 	{
 		entryPoints: ["src/ai/ai-worker.ts"],

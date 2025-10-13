@@ -1,7 +1,11 @@
+import init, * as wasm_module from "../pkg/wasm_lib.js";
 import { addRandomTile, simulateMove } from "./game/game";
 import { resetState, state } from "./game/state";
 import type { Board, Direction, WorkerMessage, WorkerResponse } from "./types";
 import { displayRecommendations, elements, initializeGrid, renderBoard, resetRecommendations, updateScore } from "./ui/dom";
+
+// WASMモジュールをエクスポート
+export let wasm: typeof wasm_module;
 
 const NUM_WORKERS = 4;
 let workers: Worker[] = [];
@@ -10,12 +14,17 @@ let completedWorkers = 0;
 let tasks: { move: Direction; board: Board }[] = [];
 
 // --- 初期化 ---
-document.addEventListener("DOMContentLoaded", () => {
+async function main() {
+	// WASMの初期化を待つ
+	wasm = await init();
+
 	initializeGrid();
 	initializeWorkers();
 	initializeApp();
 	setupEventListeners();
-});
+}
+
+main();
 
 // --- Test Helpers ---
 if (typeof window !== "undefined") {
@@ -28,6 +37,11 @@ if (typeof window !== "undefined") {
 
 function initializeApp() {
 	resetState();
+	// Add two random tiles to start the game
+	let board = addRandomTile(state.board);
+	board = addRandomTile(board);
+	state.board = board;
+
 	updateScore(state.score);
 	resetRecommendations();
 	renderBoard(state.board);

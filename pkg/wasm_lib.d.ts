@@ -1,5 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
+export function simulate_move(board_in: Float64Array, board_out: Float64Array, direction: number, merge_limit: number): number;
 export function evaluate_pattern(board_js: Float64Array, empty_cells_weight: number): number;
 export function evaluate_board(board_js: Float64Array, smoothness_weight: number, monotonicity_weight: number, empty_cells_weight: number, max_tile_weight: number): number;
 export function evaluate_snake_pattern(board_js: Float64Array): number;
@@ -8,6 +9,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
+  readonly simulate_move: (a: number, b: number, c: number, d: number, e: any, f: number, g: number) => number;
   readonly evaluate_pattern: (a: number, b: number, c: number) => number;
   readonly evaluate_board: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
   readonly evaluate_snake_pattern: (a: number, b: number) => number;
